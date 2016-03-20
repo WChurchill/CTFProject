@@ -1,0 +1,22 @@
+---design.org---
+* Macro Strategies
+** Balanced
+   Agent 1 b-lines for the enemy flag
+   Agent 2 plants mines around home base
+* Micro Strategies
+** Tag or Evade?
+   function of:
+   - distance from home base (path length in between obstacles)
+   - distance from enemy base (path length in between obstacles)
+   - whether our team has the flag
+   - whether enemy team has the flag
+   - position of enemies
+   - position of teammates
+* Mapping
+** Static map
+   Fixed-size two-dimensional array
+   Easy to share between teammates
+   Map size must be known before instantiation
+** Dynamic map
+   Variable-size list of static arrays
+   Difficult to share between teammates
