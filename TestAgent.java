@@ -31,15 +31,20 @@ public class TestAgent extends Agent {
     private static final int PLANT_MINE = AgentAction.PLANT_HYPERDEADLY_PROXIMITY_MINE;
     
     /** A map shared by both agents  */
-    private static boolean[][] globalObstacleMap; // globalObstacleMap[x-coord][y-coord]
+    private static int[][] obstacleMap; // obstacleMap[x-coord][y-coord]
+    private static final int BLOCKED = 0;
+    private static final int EMPTY = 1;
+    private static final int UNEXPLORED = 2;
+    private boolean[][] debugPathGrid = null;
     
     /** A grid where each value represents the probability that an agent is there. */
-    private static double[][] globalAgentMap;
+    private static double[][] agentMap;
     private Pos currentPos = null;
 
     /** All of the previous moves made */
     private ArrayList<Integer> moveHistory = new ArrayList<>();
     private boolean shouldBeOnHomeCol;
+    private boolean[] startSurroundings = null;
     
     /** An id used to differentiate the agents */
     private static int nextID = 0;
@@ -62,7 +67,7 @@ public class TestAgent extends Agent {
     
     /* The initial sequence involves moving toward home base in order to 
      * determine the width of the map. Once the map width is known, 
-     * 
+     * the matrices are instantiated.
      */
     
     public TestAgent(){
@@ -73,6 +78,7 @@ public class TestAgent extends Agent {
 	northInitComplete = false;
 	northTravelDist = 0;
 	southTravelDist = 0;
+	startSurroundings = null;
 	enemyBase = null;
 	homeBase = null;
 	System.out.println("TestAgent "+ID+" created!");
@@ -95,6 +101,33 @@ public class TestAgent extends Agent {
 	}
     }
 
+    private class Surrounding{
+	boolean east;
+	boolean north;
+	boolean west;
+	boolean south;
+
+	public Surrounding(boolean east, boolean north, boolean west, boolean south){
+	    this.east = east;
+	    this.north = north;
+	    this.west = west;
+	    this.south = south;
+	}
+
+	public boolean equals(Surrounding other){
+	    // TODO: A really nasty conditional
+	    return true;
+	}
+    }
+
+    private void setInitPos(boolean northAgent){
+	if (startSide==LEFT_START) {
+	    currentPos = new Pos(0, southTravelDist + (northAgent ? 2 : 0));
+	}else{
+	    currentPos = new Pos(obstacleMap.length-1, southTravelDist + (northAgent ? 2 : 0));
+	}
+    }
+    
     private Pos toGlobalPos(Pos agentPos, Pos relativePos){
 	return new Pos(relativePos.x+agentPos.x,
 		       relativePos.y+agentPos.y);
@@ -116,7 +149,7 @@ public class TestAgent extends Agent {
 
     private int recordMove(int m){
 	moveHistory.add(m);
-	if(initComplete) globalAgentMap[currentPos.x][currentPos.y] = 0;
+	if(initComplete) agentMap[currentPos.x][currentPos.y] = 0;
 	
 	switch(m){
 	case AgentAction.MOVE_EAST:
@@ -144,7 +177,7 @@ public class TestAgent extends Agent {
 	default:
 	    break;
 	}
-	if(initComplete) globalAgentMap[currentPos.x][currentPos.y] = 1.0;
+	if(initComplete) agentMap[currentPos.x][currentPos.y] = 1.0;
 	return m;
     }
     
@@ -221,7 +254,9 @@ public class TestAgent extends Agent {
      *
      */
     // TODO: Incorporate probability matrices
-    private int moveTowards(Pos goal){
+    private int moveTowards(Pos goal, boolean hasFlag){
+	// clear the debugging grid
+	if(debug) debugPathGrid = new boolean[obstacleMap.length][obstacleMap.length];
 	if(goal==null || goal.equals(currentPos)) return AgentAction.DO_NOTHING;
 	//A* search to goal
 	PathSearchNode currentNode = new PathSearchNode(AgentAction.DO_NOTHING, 0,
@@ -230,64 +265,81 @@ public class TestAgent extends Agent {
 	HashMap<Pos,PathSearchNode> searchHistory = new HashMap<>();
 	heap.add(currentNode);
 	searchHistory.put(currentPos,null);
-	
-	while(!heap.isEmpty()){
+
+	int loopCount = 0;
+	while(!heap.isEmpty() && loopCount < 999){
+	    loopCount++;
 	    currentNode = heap.poll();
 	    // goal test 
 	    if(currentNode.getPos().equals(goal)){
 		//unravel the stack
 		while(currentNode.getParent().getParent()!=null){
+		    // save the path for printing & debugging
 		    currentNode = currentNode.getParent();
+		    if(debug) debugPathGrid[currentNode.getPos().x][currentNode.getPos().y] = true;
 		}
-		if(debug) System.out.println("Best Move: "+currentNode.getMove());
+		if(debug) {
 
+		    System.out.println("Best Move: "+moveToString(currentNode.getMove()));
+		}
 		return currentNode.getMove();
 	    }else{
 		// expand successors
 		int currentX = currentNode.getPos().x;
 		int currentY = currentNode.getPos().y;
-		Pos eastPos = new Pos(currentX+1,currentY );
-		Pos westPos = new Pos(currentX-1,currentY );
-		Pos northPos = new Pos(currentX,currentY+1 );
-		Pos southPos = new Pos(currentX,currentY-1 );
-
-		if(!testObstacle(eastPos) && !searchHistory.containsKey(eastPos)){
-		    heap.add(new PathSearchNode(AgentAction.MOVE_EAST, currentNode.pathCost+1,
-						manhattanDist(eastPos,goal), eastPos, currentNode));
-		    searchHistory.put(eastPos,null);
-		}
-		if(!testObstacle(westPos) && !searchHistory.containsKey(westPos)){
-		    heap.add(new PathSearchNode(AgentAction.MOVE_WEST, currentNode.pathCost+1,
-						manhattanDist(westPos,goal), westPos, currentNode));
-		    searchHistory.put(westPos,null);
-		}
-		if(!testObstacle(northPos) && !searchHistory.containsKey(northPos)){
-		    heap.add(new PathSearchNode(AgentAction.MOVE_NORTH, currentNode.pathCost+1,
-						manhattanDist(northPos,goal), northPos, currentNode));
-		    searchHistory.put(northPos,null);
-		}
-		if(!testObstacle(southPos) && !searchHistory.containsKey(southPos)){
-		    heap.add(new PathSearchNode(AgentAction.MOVE_SOUTH, currentNode.pathCost+1,
-						manhattanDist(southPos,goal), southPos, currentNode));
-		    searchHistory.put(southPos,null);
+		Pos[] adjacentCells = {
+		    new Pos(currentX+1,currentY ), // east
+		    new Pos(currentX-1,currentY ), // west
+		    new Pos(currentX,currentY+1 ), // north
+		    new Pos(currentX,currentY-1 ) // south
+		};
+		int[] directions = {
+		    AgentAction.MOVE_EAST,
+		    AgentAction.MOVE_WEST,
+		    AgentAction.MOVE_NORTH,
+		    AgentAction.MOVE_SOUTH
+		};
+		for(int i = 0; i<4; i++){
+		    Pos temp = adjacentCells[i];
+		    if( ( hasFlag || !temp.equals(homeBase) ) &&
+			// HomeBase is an obstacle unless the agent has the enemy flag.
+			// Don't add to heap if temp is homeBase unless the goal is homeBase.
+			!testAgent(temp) && !(BLOCKED==testObstacle(temp)) &&
+			// Don't add to heap if there's a wall or agent in the way
+			!searchHistory.containsKey(temp)){
+			// or if it's been expanded already
+			
+			heap.add(new PathSearchNode(directions[i], currentNode.pathCost+1,
+						    manhattanDist(temp,goal), temp, currentNode));
+			searchHistory.put(temp, null);
+		    }
 		}
 	    }
 	}
-	if(debug) System.out.println("Search Failed");
+	if(debug && loopCount>999) System.out.println("WARNING: Infinite loop averted.");
+	if(debug) System.out.println("ERROR: Search Failed");
 	return AgentAction.DO_NOTHING;
     }
 
-    private void insertObstacle(Pos p){
+    private void insertObstacle(Pos p, int status){
 	try{
-	    globalObstacleMap[p.x][p.y] = true;
+	    obstacleMap[p.x][p.y] = status;
 	}catch(IndexOutOfBoundsException e){}
     }
 
-    private boolean testObstacle(Pos p){
+    private boolean testAgent(Pos p){
 	try{
-	    return globalObstacleMap[p.x][p.y];
+	    return 1==agentMap[p.x][p.y];
 	}catch(IndexOutOfBoundsException e){
 	    return true;
+	}
+    }
+    
+    private int testObstacle(Pos p){
+	try{
+	    return obstacleMap[p.x][p.y];
+	}catch(IndexOutOfBoundsException e){
+	    return BLOCKED;
 	}
     }
 
@@ -300,23 +352,34 @@ public class TestAgent extends Agent {
 
 	int x = currentPos.x;
 	int y = currentPos.y;
-	    
-	if(right){
-	    insertObstacle(new Pos(x+1,y));
-	}
-	if(up){
-	    insertObstacle(new Pos(x,y+1));
-	}
-	if(left){
-	    insertObstacle(new Pos(x-1,y));
-	}
-	if(down){
-	    insertObstacle(new Pos(x,y-1));
+
+	insertObstacle(new Pos(x+1, y),   right ? BLOCKED : EMPTY);
+	insertObstacle(new Pos(x,   y+1), up    ? BLOCKED : EMPTY);
+	insertObstacle(new Pos(x-1, y),   left  ? BLOCKED : EMPTY);
+	insertObstacle(new Pos(x,   y-1), down  ? BLOCKED : EMPTY);
+    }
+
+    private String moveToString(int m){
+	switch(m){
+	case AgentAction.MOVE_EAST:
+	    return "MOVE_EAST";
+	case AgentAction.MOVE_NORTH:
+	    return "MOVE_NORTH";
+	case AgentAction.MOVE_WEST:
+	    return "MOVE_WEST";
+	case AgentAction.MOVE_SOUTH:
+	    return "MOVE_SOUTH";
+	case AgentAction.DO_NOTHING:
+	    return "DO_NOTHING";
+	case PLANT_MINE:
+	    return "PLANT_MINE";
+	default:
+	    return "ERROR: INVALID_MOVE";
 	}
     }
     
     private void printMap() {
-	int width = globalObstacleMap.length;
+	int width = obstacleMap.length;
 	// print the top of the map
 	System.out.print(" ");
 	for (int col = 0; col<width; col++) {
@@ -327,10 +390,19 @@ public class TestAgent extends Agent {
 	for (int row = width-1; row>=0; row--){
 	    System.out.print("|");
 	    for(int column = 0; column<width; column++){
-		if(globalObstacleMap[column][row]){
+		if(obstacleMap[column][row]==BLOCKED){
 		    System.out.print("[]");
 		}else if(column==currentPos.x && row == currentPos.y){
-		    System.out.print("A"+ID);
+		    //System.out.printf("%02d",ID);
+		    System.out.printf("AA");
+		}else if(column==homeBase.x && row == homeBase.y){
+		    System.out.print("HB");
+		}else if(column==enemyBase.x && row==enemyBase.y){
+		    System.out.print("EB");
+		}else if(debugPathGrid[column][row]){
+		    System.out.print("--");
+		}else if(obstacleMap[column][row]==UNEXPLORED){
+		    System.out.print("??");
 		}else{
 		    System.out.print("  ");
 		}
@@ -352,6 +424,17 @@ public class TestAgent extends Agent {
 	    startSide = RIGHT_START;
     }
 
+    /** checks the surrounding spaces and checks them against the obstacle map */
+    private boolean expectedSurroundings(AgentEnvironment e){
+	Surrounding s = new Surrounding(e.isObstacleEastImmediate(),
+			    e.isObstacleNorthImmediate(),
+			    e.isObstacleWestImmediate(),
+			    e.isObstacleSouthImmediate());
+	    return true;
+	// TODO: a really nasty conditional 
+	//return testObstacle(new Pos(x+1,y)) == )
+    }
+    
     private boolean onHomeCol(AgentEnvironment env){
 	// Returns true if home base is not to the east or west
 	return !( env.isBaseWest(env.OUR_TEAM, false) || env.isBaseEast(env.OUR_TEAM, false) );
@@ -359,6 +442,21 @@ public class TestAgent extends Agent {
     
     
     // implements Agent.getMove() interface
+    private void createMaps(int mapWidth){
+	obstacleMap = new int[mapWidth][mapWidth];
+	for(int i = 0; i< mapWidth; i++){
+	    for (int j = 0; j<mapWidth; j++) {
+		obstacleMap[i][j] = UNEXPLORED;
+	    }
+	}
+	for(int i = 0; i< mapWidth; i++){
+	    obstacleMap[0][i] = EMPTY;
+	    obstacleMap[mapWidth-1][i] = EMPTY;
+	}
+	agentMap = new double[mapWidth][mapWidth];
+	debugPathGrid = new boolean[mapWidth][mapWidth];
+    }
+    
     public int getMove( AgentEnvironment env ) {
 	if (debug) System.out.println("***** Processing Agent "+ID+" *****");
 
@@ -393,33 +491,21 @@ public class TestAgent extends Agent {
 	    // Executed by the last agent to get to home base
 	    if(initComplete = southInitComplete && northInitComplete){
 		int mapWidth = northTravelDist+southTravelDist+3;
-		if(debug) System.out.println("Map width: "+mapWidth);
-		globalObstacleMap = new boolean[mapWidth][mapWidth];
-		globalAgentMap = new double[mapWidth][mapWidth];
-		
+		//if(debug) System.out.println("Map width: "+mapWidth);
+		createMaps(mapWidth);
+				
 		/** set the current location */
-		if (startSide==LEFT_START) {
-		    if(env.isBaseSouth(env.OUR_TEAM, false)){
-			currentPos = new Pos(0,northTravelDist);
-		    }else{
-			currentPos = new Pos(0,southTravelDist);
-		    }
-		}else{
-		    if(env.isBaseSouth(env.OUR_TEAM, false)){
-			currentPos = new Pos(mapWidth-1,mapWidth-1-northTravelDist);
-		    }else{
-			currentPos = new Pos(mapWidth-1,southTravelDist);
-		    }
-		}
+		setInitPos(true);
+		
 		/** Set the location of each base for convenience*/
 		if(startSide==RIGHT_START){
-		    homeBase = new Pos(globalObstacleMap.length-1,
-				       (globalObstacleMap.length-1)/2);
-		    enemyBase = new Pos(0,(globalObstacleMap.length-1)/2);
+		    homeBase = new Pos(obstacleMap.length-1,
+				       (obstacleMap.length-1)/2);
+		    enemyBase = new Pos(0,(obstacleMap.length-1)/2);
 		}else{
-		    homeBase = new Pos(0,(globalObstacleMap.length-1)/2);
-		    enemyBase = new Pos(globalObstacleMap.length-1,
-					(globalObstacleMap.length-1)/2);
+		    homeBase = new Pos(0,(obstacleMap.length-1)/2);
+		    enemyBase = new Pos(obstacleMap.length-1,
+					(obstacleMap.length-1)/2);
 		}
 		
 	    }else{
@@ -430,52 +516,47 @@ public class TestAgent extends Agent {
 	}
 	// Executed by the first agent to reach home base
 	if(currentPos==null){
-	    if (startSide==LEFT_START) {
-		if(env.isBaseSouth(env.OUR_TEAM, false)){
-		    currentPos = new Pos(0,northTravelDist);
-		}else{
-		    currentPos = new Pos(0,southTravelDist);
-		}
-	    }else{
-		if(env.isBaseSouth(env.OUR_TEAM, false)){
-		    currentPos = new Pos(globalObstacleMap.length-1,globalObstacleMap.length-1-northTravelDist);
-		}else{
-		    currentPos = new Pos(globalObstacleMap.length-1,southTravelDist);
-		}
-	    }
+	    setInitPos(env.isBaseSouth(env.OUR_TEAM, false));
 	}
 	
 	/** Check if the agent has been tagged or exploded */
-	if(!shouldBeOnHomeCol && onHomeCol(env)){
+	if((env.isObstacleNorthImmediate() || env.isObstacleSouthImmediate()) && onHomeCol(env)){
 	    // TODO: Do what should be done after being tagged/blown up
 	    // TODO: Update currentPos
+	    // TODO: Test whether somebody scored
 	    if(startSide==LEFT_START){
+		currentPos.x = 0;
 		if(env.isBaseSouth(AgentEnvironment.OUR_TEAM, false)){
-		    
+		    currentPos.y = obstacleMap.length-1;
 		}else{
-		    
+		    currentPos.y = 0;
 		}
 	    }else{
-		
+		currentPos.x = obstacleMap.length-1;
+		if(env.isBaseSouth(AgentEnvironment.OUR_TEAM, false)){
+		    currentPos.y = obstacleMap.length-1;
+		}else{
+		    currentPos.y = 0;
+		}
 	    }
 	}
-	
-	//if(debug) System.out.println("currentPos: "+currentPos.toString());
 	updateObstacleMap(env);
-	if(debug) printMap();
-
+	
+	int finalMove;
 	if(env.isBaseNorth(env.OUR_TEAM,true)){
-	    return recordMove(AgentAction.DO_NOTHING);
+	    return recordMove(moveTowards(currentPos,false));
 	}
 	
 	if(env.hasFlag(env.OUR_TEAM)){
 	    // B-line for home base
-	    return recordMove(moveTowards(homeBase));
+	    finalMove = moveTowards(homeBase,true);
 	}else{
 	    // B-line for the enemy base
-	    return recordMove(moveTowards(enemyBase));
+	    finalMove = moveTowards(enemyBase,false);
 	}
+	if(debug) printMap();	
+
 	
-	//return recordMove(AgentAction.DO_NOTHING);
+	return recordMove(finalMove);
     }
 }
