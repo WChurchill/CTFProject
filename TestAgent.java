@@ -95,6 +95,10 @@ public class TestAgent extends Agent {
 	public String toString(){
 	    return "("+x+","+y+")";
 	}
+
+	public int hashCode(){
+	    return (x*7+y*3)%97;
+	}
 	
 	public boolean equals(Pos other){
 	    return x==other.x && y==other.y;
@@ -154,12 +158,6 @@ public class TestAgent extends Agent {
 	switch(m){
 	case AgentAction.MOVE_EAST:
 	    currentPos.x++;
-	    // set shouldBeOnHomeCol
-	    if(startSide==LEFT_START){
-		
-	    }else{
-		
-	    }
 	    break;
 	case AgentAction.MOVE_NORTH:
 	    currentPos.y++;
@@ -228,6 +226,10 @@ public class TestAgent extends Agent {
 	public int fCost(){
 	    return pathCost+manhattan;
 	}
+
+	public int getManhattan(){
+	    return manhattan;
+	}
 	
 	public int getMove(){
 	    return move;
@@ -260,16 +262,20 @@ public class TestAgent extends Agent {
 	if(goal==null || goal.equals(currentPos)) return AgentAction.DO_NOTHING;
 	//A* search to goal
 	PathSearchNode currentNode = new PathSearchNode(AgentAction.DO_NOTHING, 0,
-							0, currentPos, null);
+							manhattanDist(currentPos, goal), currentPos, null);
 	PriorityQueue<PathSearchNode> heap = new PriorityQueue<>();
 	HashMap<Pos,PathSearchNode> searchHistory = new HashMap<>();
 	heap.add(currentNode);
 	searchHistory.put(currentPos,null);
 
 	int loopCount = 0;
-	while(!heap.isEmpty() && loopCount < 999){
+	int loopLimit = obstacleMap.length*obstacleMap.length;
+	while(!heap.isEmpty() && loopCount < loopLimit){
 	    loopCount++;
 	    currentNode = heap.poll();
+	    if(debug) System.out.print(currentNode.getManhattan()+" ");
+	    if(debug) System.out.println(currentNode.getPos().toString());
+
 	    // goal test 
 	    if(currentNode.getPos().equals(goal)){
 		//unravel the stack
@@ -279,8 +285,8 @@ public class TestAgent extends Agent {
 		    if(debug) debugPathGrid[currentNode.getPos().x][currentNode.getPos().y] = true;
 		}
 		if(debug) {
-
-		    System.out.println("Best Move: "+moveToString(currentNode.getMove()));
+		    
+		    System.out.println("\nBest Move: "+moveToString(currentNode.getMove()));
 		}
 		return currentNode.getMove();
 	    }else{
@@ -316,8 +322,8 @@ public class TestAgent extends Agent {
 		}
 	    }
 	}
-	if(debug && loopCount>999) System.out.println("WARNING: Infinite loop averted.");
-	if(debug) System.out.println("ERROR: Search Failed");
+	if(debug && loopCount==999) System.out.println("\nWARNING: Infinite loop averted.");
+	if(debug) System.out.println("\nERROR: Search Failed");
 	return AgentAction.DO_NOTHING;
     }
 
@@ -539,14 +545,14 @@ public class TestAgent extends Agent {
 		    currentPos.y = 0;
 		}
 	    }
+	} else{
+	    updateObstacleMap(env);
 	}
-	updateObstacleMap(env);
 	
 	int finalMove;
 	if(env.isBaseNorth(env.OUR_TEAM,true)){
 	    return recordMove(moveTowards(currentPos,false));
 	}
-	
 	if(env.hasFlag(env.OUR_TEAM)){
 	    // B-line for home base
 	    finalMove = moveTowards(homeBase,true);
