@@ -167,7 +167,7 @@ public class TestAgent extends Agent {
 		testObstacle(new Pos(testX,   testY-1))==BLOCKED ||
 		testObstacle(new Pos(testX+1, testY-1))==BLOCKED)){
 		horizontalChoke = true;
-	    }else if(testObstacle(new Pos(testX, testY-1))==BLOCKED // test if the south cell is blocked
+	    }else if(testObstacle(new Pos(testX, testY-1))==BLOCKED && // test if the south cell is blocked
 		     // test if the northEast, north, or northWest cells are blocked
 		     (testObstacle(new Pos(testX-1, testY+1))==BLOCKED || 
 		      testObstacle(new Pos(testX,   testY+1))==BLOCKED ||
@@ -189,6 +189,8 @@ public class TestAgent extends Agent {
 	if( testObstacle(new Pos(testX-1,testY+1))==BLOCKED && testObstacle(new Pos(testX+1,testY-1))==BLOCKED  ){
 	    topRightChoke = true;
 	}
+
+	return false;
     }
     
     private class Surrounding{
