@@ -21,6 +21,7 @@
    - distance from home base (path length in between obstacles)
    - distance from enemy base (path length in between obstacles)
    - whether our team has the flag
+   - whether this agent has the flag
    - whether enemy team has the flag
    - position of enemies
    - position of teammates
