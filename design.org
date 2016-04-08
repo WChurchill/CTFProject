@@ -1,4 +1,16 @@
 ---design.org---
+* Navigation
+* Team Cooperation
+* Offense
+** Tactics
+** Strategies
+* Defense
+** Tactics
+** Strategies
+* Learning?
+* Evasion
+* Tagging
+* Mine Planting
 * Macro Strategies
 ** Balanced
    Agent 1 b-lines for the enemy flag
@@ -20,3 +32,5 @@
 ** Dynamic map
    Variable-size list of static arrays
    Difficult to share between teammates
+* Chokepoints
+** 

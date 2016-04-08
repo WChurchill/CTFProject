@@ -6,6 +6,10 @@ import ctf.agent.Agent;
 
 import ctf.common.AgentAction;
 
+import java.awt.Image;
+import java.awt.Graphics;
+import java.awt.Color;
+
 import java.util.ArrayList;
 import java.util.PriorityQueue;
 import java.util.HashMap;
@@ -32,10 +36,22 @@ public class TestAgent extends Agent {
     
     /** A map shared by both agents  */
     private static int[][] obstacleMap; // obstacleMap[x-coord][y-coord]
-    private static final int BLOCKED = 0;
-    private static final int EMPTY = 1;
-    private static final int UNEXPLORED = 2;
+    private static final int BLOCKED = 100;
+    private static final int EMPTY = 101;
+    private static final int UNEXPLORED = 102;
     private boolean[][] debugPathGrid = null;
+
+    /** A map of key strategic chokepoints */
+    private static int[][] chokePointMap;
+    private static final int CHOKEPOINT_1 = 103; // indicates a chokepoint 1 square wide
+    private static final int CHOKEPOINT_2 = 104; // indicates a chokepoint 2 squares wide
+    private static final int CHOKEPOINT_3 = 105; // indicates a chokepoint of width 3
+    private static final int NOT_CHOKEPOINT = 106; // indicates no strategic value for this square
+    
+    /** A map of corridors, generated from the chokepoint map*/
+    private static int[][] corridorMap;
+    private enum direction {horiz, vert, topLeft, topRight};
+    
     
     /** A grid where each value represents the probability that an agent is there. */
     private static double[][] agentMap;
@@ -51,8 +67,8 @@ public class TestAgent extends Agent {
     private final int ID;
 
     /** Boolean used to determine the starting position */
-    private final int LEFT_START = 0;
-    private final int RIGHT_START =1;
+    private final int LEFT_START = 110;
+    private final int RIGHT_START =111;
     private static int startSide = -1;
 
     /** Store the locations of each base */
@@ -95,16 +111,86 @@ public class TestAgent extends Agent {
 	public String toString(){
 	    return "("+x+","+y+")";
 	}
-
-	public int hashCode(){
-	    return (x*7+y*3)%97;
-	}
 	
-	public boolean equals(Pos other){
-	    return x==other.x && y==other.y;
+	public boolean equals(Object other){
+	    Pos p = (Pos) other;
+	    return x == p.x && y == p.y;
 	}
     }
 
+    /** Checks whether or not the given Pos is a chokepoint 1 square wide
+     *  Returns false if the square is an obstacle or any immediately adjacent
+     *  (north, south, east, west) square is unknown.
+     */
+    private boolean isW1ChokePoint(Pos testPos){
+	// check if the test position is a wall	
+	if(testObstacle(testPos)==BLOCKED){
+	    return false;
+	}
+	int testX = testPos.x;
+	int testY = testPos.y;
+	// indicates the orientation of the "hallway"
+	boolean verticalChoke = false; // open spaces north and south
+	boolean horizontalChoke = false; // open spaces east and west
+	boolean topRightChoke = false; // top left and bottom right blocked
+	boolean topLeftChoke = false; // top right and bottom left blocked
+	/*
+	 * Check for vertical corridor, i.e. walls on the east and west 
+	 * but not directly north or directly south
+	 */
+	// no obstacles directly north or directly south
+	if( !(testObstacle(new Pos(testX, testY+1))==BLOCKED || testObstacle(new Pos(testX, testY+1))==BLOCKED ) ){
+	    // test if the west cell is blocked
+	    if(testObstacle(new Pos(testX-1, testY))==BLOCKED && 
+	       // test if the northEast, east, or southeast cells are blocked
+	       (testObstacle(new Pos(testX+1, testY+1)) == BLOCKED || 
+		testObstacle(new Pos(testX+1, testY)) == BLOCKED ||
+		testObstacle(new Pos(testX+1, testY-1)) == BLOCKED)){
+		verticalChoke = true;
+	    }else if(testObstacle(new Pos(testX+1, testY))==BLOCKED && // test if the east cell is blocked
+		     // test if the northWest, west, or southWest cells are blocked
+		     (testObstacle(new Pos(testX-1, testY+1))==BLOCKED|| 
+		      testObstacle(new Pos(testX-1, testY))==BLOCKED ||
+		      testObstacle(new Pos(testX-1, testY-1))==BLOCKED)){
+		verticalChoke = true;
+	    }
+	}
+	/*
+	 * Check for horizontal corridor, i.e. walls on the north and south 
+	 * but not directly east or directly west
+	 */
+	if( !(testObstacle(new Pos(testX-1, testY))==BLOCKED || testObstacle(new Pos(testX+1, testY))==BLOCKED ) ){
+	    // test if the north cell is blocked
+	    if(testObstacle(new Pos(testX, testY+1))==BLOCKED && 
+	       // test if the southEast, south, or southWest cells are blocked
+	       (testObstacle(new Pos(testX-1, testY-11))==BLOCKED || 
+		testObstacle(new Pos(testX,   testY-1))==BLOCKED ||
+		testObstacle(new Pos(testX+1, testY-1))==BLOCKED)){
+		horizontalChoke = true;
+	    }else if(testObstacle(new Pos(testX, testY-1))==BLOCKED // test if the south cell is blocked
+		     // test if the northEast, north, or northWest cells are blocked
+		     (testObstacle(new Pos(testX-1, testY+1))==BLOCKED || 
+		      testObstacle(new Pos(testX,   testY+1))==BLOCKED ||
+		      testObstacle(new Pos(testX+1, testY+1))==BLOCKED)){
+		horizontalChoke = true;
+	    }
+	}
+	/*
+	 * Check for topRightChoke
+	 * topLeft cell blocked and bottomRight cell blocked
+	 */
+	if( testObstacle(new Pos(testX-1,testY+1))==BLOCKED && testObstacle(new Pos(testX+1,testY-1))==BLOCKED  ){
+	    topRightChoke = true;
+	}
+	/*
+	 * Check for topLeftChoke
+	 * topRight cell blocked and bottomRight cell blocked
+	 */
+	if( testObstacle(new Pos(testX-1,testY+1))==BLOCKED && testObstacle(new Pos(testX+1,testY-1))==BLOCKED  ){
+	    topRightChoke = true;
+	}
+    }
+    
     private class Surrounding{
 	boolean east;
 	boolean north;
@@ -255,6 +341,7 @@ public class TestAgent extends Agent {
      * PRECONDITION: the current position is known
      *
      */
+    // TODO: fix pathfinding with possession of flag
     // TODO: Incorporate probability matrices
     private int moveTowards(Pos goal, boolean hasFlag){
 	// clear the debugging grid
@@ -267,7 +354,7 @@ public class TestAgent extends Agent {
 	HashMap<Pos,PathSearchNode> searchHistory = new HashMap<>();
 	heap.add(currentNode);
 	searchHistory.put(currentPos,null);
-
+		
 	int loopCount = 0;
 	int loopLimit = obstacleMap.length*obstacleMap.length;
 	while(!heap.isEmpty() && loopCount < loopLimit){
@@ -312,12 +399,13 @@ public class TestAgent extends Agent {
 			// Don't add to heap if temp is homeBase unless the goal is homeBase.
 			!testAgent(temp) && !(BLOCKED==testObstacle(temp)) &&
 			// Don't add to heap if there's a wall or agent in the way
-			!searchHistory.containsKey(temp)){
+			!searchHistory.containsKey(temp)
+			) {
 			// or if it's been expanded already
-			
-			heap.add(new PathSearchNode(directions[i], currentNode.pathCost+1,
-						    manhattanDist(temp,goal), temp, currentNode));
-			searchHistory.put(temp, null);
+			PathSearchNode newNode = new PathSearchNode(directions[i], currentNode.pathCost+1,
+								    manhattanDist(temp,goal), temp, currentNode);
+			heap.add(newNode);
+			searchHistory.put(temp, newNode);
 		    }
 		}
 	    }
@@ -528,6 +616,7 @@ public class TestAgent extends Agent {
 	/** Check if the agent has been tagged or exploded */
 	if((env.isObstacleNorthImmediate() || env.isObstacleSouthImmediate()) && onHomeCol(env)){
 	    // TODO: Do what should be done after being tagged/blown up
+	    updateStartSide(env);
 	    // TODO: Update currentPos
 	    // TODO: Test whether somebody scored
 	    if(startSide==LEFT_START){
@@ -564,5 +653,18 @@ public class TestAgent extends Agent {
 
 	
 	return recordMove(finalMove);
+    }
+
+    public void drawIcon(Graphics g, int width, int height){
+	// draw a circle lol
+	int xCenter = width/2;
+	int yCenter = height/2;
+
+	g.setColor(Color.yellow);
+	// g.fillArc(0, 0, width-1, height-1, -135, 135);
+	//g.fillArc(0, 0, width-1, height-1, 0, 135);
+	g.fillOval(0,0,width-1,height-1);
+	g.setColor(Color.black);
+	g.drawOval(0,0, width-1,height-1);
     }
 }
