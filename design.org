@@ -1,6 +1,10 @@
 ---design.org---
-* Navigation
 * Team Cooperation
+** Protect Teammate
+** Protect Base
+** Get Flag
+** Explore
+** Guard Chokepoint
 * Offense
 ** Tactics
 ** Strategies
