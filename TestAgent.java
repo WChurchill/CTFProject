@@ -137,7 +137,7 @@ public class TestAgent extends Agent {
      */
     private boolean isW1ChokePoint(Pos testPos){
 	// check if the test position is a wall	
-	if(testObstacle(testPos)==BLOCKED){
+	if(testObstacle(testPos)){
 	    return false;
 	}
 	int testX = testPos.x;
@@ -152,19 +152,19 @@ public class TestAgent extends Agent {
 	 * but not directly north or directly south
 	 */
 	// no obstacles directly north or directly south
-	if( !(testObstacle(new Pos(testX, testY+1))==BLOCKED || testObstacle(new Pos(testX, testY+1))==BLOCKED ) ){
+	if( !(testObstacle(new Pos(testX, testY+1)) || testObstacle(new Pos(testX, testY+1)) ) ){
 	    // test if the west cell is blocked
-	    if(testObstacle(new Pos(testX-1, testY))==BLOCKED && 
+	    if(testObstacle(new Pos(testX-1, testY)) && 
 	       // test if the northEast, east, or southeast cells are blocked
-	       (testObstacle(new Pos(testX+1, testY+1)) == BLOCKED || 
-		testObstacle(new Pos(testX+1, testY)) == BLOCKED ||
-		testObstacle(new Pos(testX+1, testY-1)) == BLOCKED)){
+	       (testObstacle(new Pos(testX+1, testY+1))  || 
+		testObstacle(new Pos(testX+1, testY)) ||
+		testObstacle(new Pos(testX+1, testY-1)))){
 		verticalChoke = true;
-	    }else if(testObstacle(new Pos(testX+1, testY))==BLOCKED && // test if the east cell is blocked
+	    }else if(testObstacle(new Pos(testX+1, testY)) && // test if the east cell is blocked
 		     // test if the northWest, west, or southWest cells are blocked
-		     (testObstacle(new Pos(testX-1, testY+1))==BLOCKED|| 
-		      testObstacle(new Pos(testX-1, testY))==BLOCKED ||
-		      testObstacle(new Pos(testX-1, testY-1))==BLOCKED)){
+		     (testObstacle(new Pos(testX-1, testY+1))|| 
+		      testObstacle(new Pos(testX-1, testY)) ||
+		      testObstacle(new Pos(testX-1, testY-1)))){
 		verticalChoke = true;
 	    }
 	}
@@ -172,19 +172,19 @@ public class TestAgent extends Agent {
 	 * Check for horizontal corridor, i.e. walls on the north and south 
 	 * but not directly east or directly west
 	 */
-	if( !(testObstacle(new Pos(testX-1, testY))==BLOCKED || testObstacle(new Pos(testX+1, testY))==BLOCKED ) ){
+	if( !(testObstacle(new Pos(testX-1, testY)) || testObstacle(new Pos(testX+1, testY)) ) ){
 	    // test if the north cell is blocked
-	    if(testObstacle(new Pos(testX, testY+1))==BLOCKED && 
+	    if(testObstacle(new Pos(testX, testY+1)) && 
 	       // test if the southEast, south, or southWest cells are blocked
-	       (testObstacle(new Pos(testX-1, testY-11))==BLOCKED || 
-		testObstacle(new Pos(testX,   testY-1))==BLOCKED ||
-		testObstacle(new Pos(testX+1, testY-1))==BLOCKED)){
+	       (testObstacle(new Pos(testX-1, testY-11)) || 
+		testObstacle(new Pos(testX,   testY-1)) ||
+		testObstacle(new Pos(testX+1, testY-1)))){
 		horizontalChoke = true;
-	    }else if(testObstacle(new Pos(testX, testY-1))==BLOCKED && // test if the south cell is blocked
+	    }else if(testObstacle(new Pos(testX, testY-1)) && // test if the south cell is blocked
 		     // test if the northEast, north, or northWest cells are blocked
-		     (testObstacle(new Pos(testX-1, testY+1))==BLOCKED || 
-		      testObstacle(new Pos(testX,   testY+1))==BLOCKED ||
-		      testObstacle(new Pos(testX+1, testY+1))==BLOCKED)){
+		     (testObstacle(new Pos(testX-1, testY+1)) || 
+		      testObstacle(new Pos(testX,   testY+1)) ||
+		      testObstacle(new Pos(testX+1, testY+1)))){
 		horizontalChoke = true;
 	    }
 	}
@@ -192,14 +192,14 @@ public class TestAgent extends Agent {
 	 * Check for topRightChoke
 	 * topLeft cell blocked and bottomRight cell blocked
 	 */
-	if( testObstacle(new Pos(testX-1,testY+1))==BLOCKED && testObstacle(new Pos(testX+1,testY-1))==BLOCKED  ){
+	if( testObstacle(new Pos(testX-1,testY+1)) && testObstacle(new Pos(testX+1,testY-1))  ){
 	    topRightChoke = true;
 	}
 	/*
 	 * Check for topLeftChoke
 	 * topRight cell blocked and bottomRight cell blocked
 	 */
-	if( testObstacle(new Pos(testX-1,testY+1))==BLOCKED && testObstacle(new Pos(testX+1,testY-1))==BLOCKED  ){
+	if( testObstacle(new Pos(testX-1,testY+1)) && testObstacle(new Pos(testX+1,testY-1))  ){
 	    topRightChoke = true;
 	}
 
@@ -404,7 +404,7 @@ public class TestAgent extends Agent {
 		    // Don't add to heap if temp is homeBase unless the goal is homeBase.
 		    if( ( hasFlag || !temp.equals(homeBase) ) &&
 			// Don't add to heap if there's a wall or agent in the way
-			!testAgent(temp) && !(BLOCKED==testObstacle(temp))) {
+			!testAgent(temp) && !testObstacle(temp)) {
 			PathSearchNode newNode = new PathSearchNode(directions[i], currentNode.pathCost+1,
 								    manhattanDist(temp,goal), temp, currentNode);
 			heap.add(newNode);
@@ -412,8 +412,6 @@ public class TestAgent extends Agent {
 		}
 	    }
 	}
-	if(debug && loopCount==999)
-	    System.out.println("\nWARNING: Infinite loop averted.");
 	if(debug) System.out.println("\nERROR: Search Failed");
 	return AgentAction.DO_NOTHING;
     }
@@ -432,11 +430,11 @@ public class TestAgent extends Agent {
 	}
     }
     
-    private int testObstacle(Pos p){
+    private boolean testObstacle(Pos p){
 	try{
-	    return obstacleMap[p.x][p.y];
+	    return obstacleMap[p.x][p.y]==BLOCKED;
 	}catch(IndexOutOfBoundsException e){
-	    return BLOCKED;
+	    return true;
 	}
     }
 
