@@ -301,13 +301,25 @@ class ChokeTester {
 
     public ChokeTester(){
 	int map[][];
+	String names[] = { "chokepoints",
+			 "genTest",
+			 "empty",
+			 "labyrinth",
+			 "maze",
+			 "simple",
+			 "test",
+			 "traps",
+			 "wall",
+			 "x"
+	};
 	try{
-	    String name = "genTest.txt";
-	    randomMap(name, 12);
-	    parseMap(name);
-	    doChokePoints();
-	    printMap();
-	    printChokeMap();
+	    for(int i = 0; i<names.length; i++){
+		String name = names[i]+".txt";
+		parseMap(name);
+		doChokePoints();
+		printMap();
+		printChokeMap();
+	    }
 	}catch(IOException e){
 	    e.printStackTrace();
 	}
