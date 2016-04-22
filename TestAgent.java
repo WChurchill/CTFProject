@@ -69,6 +69,10 @@ public class TestAgent extends Agent {
     private static int[][] corridorMap;
     private enum direction {horiz, vert, topLeft, topRight};
     
+    /** 
+     * A hashmap containing the location of all bombs planted
+     */
+    private static HashMap<Pos, Boolean> bombMap = new HashMap<>();
     
     /** 
      * A grid where each value represents the certainty that an agent is there.
@@ -100,8 +104,10 @@ public class TestAgent extends Agent {
     /**
      * Share the intentions with teammates
      */
-    public PathSearchNode intention; // contains the path that the agent will follow
-    
+    private PathSearchNode intention; // contains the path that the agent will follow
+    private final int DEFEND= 0;
+    private final int ATTACK = 1;
+    private int mode;
     /** 
      * Boolean used to determine the starting position 
      */
@@ -490,7 +496,7 @@ public class TestAgent extends Agent {
 	    teammate = agent2;
 	else
 	    teammate = agent1;
-	return (this.pathLength(this.getPath(currentPos, enemyBase, false)) <=
+	return (this.pathLength(this.getPath(currentPos, enemyBase, false)) <
 				teammate.pathLength( teammate.getPath(teammate.currentPos,enemyBase, false)));
     }
     
@@ -506,6 +512,15 @@ public class TestAgent extends Agent {
 	    agentMap[p.x][p.y] = status;
 	}catch(IndexOutOfBoundsException e){}
     }
+
+    private void insertBomb(Pos p){
+	bombMap.put(p, true);
+    }
+
+    private void removeBomb(Pos p){
+	bombMap.remove(p);
+    }
+    
     
     private boolean testTeammate(Pos p){
 	try{
@@ -817,10 +832,20 @@ public class TestAgent extends Agent {
 	}
     }
     
-    public int getMode(){
+    public void setMode(){
 	if(this.isCloser()){
-	    int temp = this.mode;
+	    mode = ATTACK;
+	}else{
+	    mode = DEFEND;
 	}
+    }
+    
+    public int attackModeMove(){
+	return moveTowards(enemyBase,false);
+    }
+
+    public int defenseModeMove(){
+	return AgentAction.DO_NOTHING;
     }
     
     public int getMove( AgentEnvironment env ) {
@@ -834,6 +859,8 @@ public class TestAgent extends Agent {
 	    // NORTH AGENT
 	    // If this is the northmost agent
 	    if(env.isBaseSouth(env.OUR_TEAM, false)){
+		// set mode to attack
+		mode = ATTACK;
 		// Travel south if home base is not immediately south
 		if(!env.isBaseSouth(env.OUR_TEAM, true)){
 		    northTravelDist++;
@@ -845,6 +872,8 @@ public class TestAgent extends Agent {
 		// SOUTH AGENT
 		// if this is the southern agent
 	    }else{
+		// set mode to defense
+		mode = DEFEND;
 		// travel north if home base is not immediately north
 		if(!env.isBaseNorth(env.OUR_TEAM, true)){
 		    southTravelDist++;
@@ -909,21 +938,32 @@ public class TestAgent extends Agent {
 	}
 	updateMaps(env);
 	
-	int finalMove;
+	int finalMove = 0;
 	// if(env.isBaseNorth(env.OUR_TEAM,true)){
 	//     return recordMove(moveTowards(currentPos,false));
 	// }
 	if(env.hasFlag()){
 	    // B-line for home base
 	    finalMove = moveTowards(homeBase,true);
-	}else if(!env.hasFlag(env.OUR_TEAM)){
-	    // B-line for the enemy base
-	    finalMove = moveTowards(enemyBase,false);
 	}else{
-	    finalMove = AgentAction.DO_NOTHING;
+	    switch(mode){
+	    case ATTACK:
+		finalMove = attackModeMove();
+		break;
+	    case DEFEND:
+		finalMove = defenseModeMove();
+		break;
+	    }
+	    if(!env.hasFlag(env.OUR_TEAM)){
+		// B-line for the enemy base
+		
+	    }else{
+		finalMove = AgentAction.DO_NOTHING;
+	    }    
 	}
 	if(debug) {
-	    printObstacleMap();
+	    //printObstacleMap();
+	    printChokeMap();
 	    //printAgentMap();
 	}
 
