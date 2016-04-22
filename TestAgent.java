@@ -71,7 +71,11 @@ public class TestAgent extends Agent {
     
     
     /** 
-     * A grid where each value represents the probability that an agent is there. 
+     * A grid where each value represents the certainty that an agent is there.
+     *
+     * +1 indicates a teammate
+     * -1 indicates a 100% chance that an enemy is there
+     * -0.5 indicates the possibility that an enemy is there
      */
     private static double[][] agentMap;
     private Pos currentPos = null;
@@ -89,7 +93,14 @@ public class TestAgent extends Agent {
      */
     private static int nextID = 0;
     private final int ID;
+    private static TestAgent agent1;
+    private static TestAgent agent2;
 
+    /**
+     * Share the intentions with teammates
+     */
+    public PathSearchNode intention; // contains the path that the agent will follow
+    
     /** 
      * Boolean used to determine the starting position 
      */
@@ -127,9 +138,21 @@ public class TestAgent extends Agent {
 	startSurroundings = null;
 	enemyBase = null;
 	homeBase = null;
+	if(agent1==null)
+	    agent1 = this;
+	else
+	    agent2 = this;
 	System.out.println("TestAgent "+ID+" created!");
     }
 
+    public boolean equals(Object other){
+	if(other instanceOf TestAgent){
+	    otherAgent = (TestAgent)other;
+	    return otherAgent.ID==ID;
+	}
+	return false;
+    }
+    
     private class Pos {
 	public int x, y;
 	
@@ -306,7 +329,7 @@ public class TestAgent extends Agent {
 	default:
 	    break;
 	}
-	if(initComplete) agentMap[currentPos.x][currentPos.y] = 1.0;
+	if(initComplete) agentMap[currentPos.x][currentPos.y] = 1;
 	return m;
     }
 
@@ -364,8 +387,6 @@ public class TestAgent extends Agent {
 	}
     }
 
-    
-    
     /** 
      * Using A* search and the current obstacle map of the environment find 
      * a route to the specified base
@@ -427,7 +448,7 @@ public class TestAgent extends Agent {
 		    // Don't add to heap if temp is homeBase unless the goal is homeBase.
 		    if( ( hasFlag || !temp.equals(homeBase) ) &&
 			// Don't add to heap if there's a wall or agent in the way
-			!testAgent(temp) && !testObstacle(temp)) {
+			!testTeammate(temp) /*&& testEnemy(temp)!=-1.0 */ && !testObstacle(temp)) {
 			PathSearchNode newNode = new PathSearchNode(directions[i], currentNode.pathCost+1,
 								    manhattanDist(temp,goal), temp, currentNode);
 			heap.add(newNode);
@@ -438,9 +459,10 @@ public class TestAgent extends Agent {
 	if(debug) System.out.println("\nERROR: Search Failed");
 	return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null);
     }
-
+    
     private int moveTowards(Pos goal, boolean hasFlag){
 	PathSearchNode currentNode = getPath(currentPos, goal, hasFlag);
+	intention = currentNode;
 	while(currentNode.getParent().getParent()!=null){
 	    // save the path for printing & debugging
 	    currentNode = currentNode.getParent();
@@ -449,6 +471,7 @@ public class TestAgent extends Agent {
 	if(debug) {
 	    System.out.println("\nBest Move: "+moveToString(currentNode.getMove()));
 	}
+	
 	return currentNode.getMove();
     }
     
@@ -459,11 +482,25 @@ public class TestAgent extends Agent {
 	}catch(IndexOutOfBoundsException e){}
     }
 
-    private boolean testAgent(Pos p){
+    private void insertAgent(Pos p, double status){
 	try{
-	    return 1==agentMap[p.x][p.y];
+	    agentMap[p.x][p.y] = status;
+	}catch(IndexOutOfBoundsException e){}
+    }
+    
+    private boolean testTeammate(Pos p){
+	try{
+	    return 1.0==agentMap[p.x][p.y];
 	}catch(IndexOutOfBoundsException e){
 	    return true;
+	}
+    }
+
+    private double testEnemy(Pos p){
+	try{
+	    return agentMap[p.x][p.y];
+	}catch(IndexOutOfBoundsException e){
+	    return 0.0;
 	}
     }
     
@@ -490,7 +527,7 @@ public class TestAgent extends Agent {
 	insertObstacle(new Pos(x-1, y),   left  ? BLOCKED : EMPTY);
 	insertObstacle(new Pos(x,   y-1), down  ? BLOCKED : EMPTY);
 
-
+	// Update immediate agent positions
 	boolean agentRight = e.isAgentEast(e.ENEMY_TEAM, true);
 	boolean agentUp = e.isAgentNorth(e.ENEMY_TEAM, true);
 	boolean agentLeft = e.isAgentWest(e.ENEMY_TEAM, true);
@@ -501,8 +538,25 @@ public class TestAgent extends Agent {
 	for (int i = 0; i < agents.length; i++) {
 	    sum+= agents[i] ? 1 : 0;
 	}
+	// We know for sure where both of the enemy agents are
+	// THEY'RE RIGHT NEXT TO US!!!!
 	if(sum==2){
-	    
+	    // clear the map of .5's and -1's
+	    for(int row = 0; row < agentMap.length; row++){
+		for(int col = 0; col<agentMap[row].length; col++){
+		    if(agentMap[col][row]!=1){
+			agentMap[col][row] = 0;
+		    }
+		}
+	    }
+	    if(agentRight)
+		insertAgent(new Pos(x+1,y), -1);
+	    if(agentLeft)
+		insertAgent(new Pos(x-1,y), -1);
+	    if(agentUp)
+		insertAgent(new Pos(x,y+1), -1);
+	    if(agentDown)
+		insertAgent(new Pos(x,y-1), -1);
 	}
 	
 	if(agentRight){
@@ -601,13 +655,11 @@ public class TestAgent extends Agent {
 		double prob = agentMap[column][row];
 		if(obstacleMap[column][row]==BLOCKED){
 		    System.out.print("[ ]");
-		}else if(prevPos!=null && column==prevPos.x && row==prevPos.y){
-		    System.out.print("...");
 		} else if(prob==1.0){
 		    System.out.print("1.0");
 		} else if(prob==0.0){
 		    System.out.print("   ");
-		}else{
+		} else{
 		    System.out.printf("%.2f", prob);
 		}		    
 		
@@ -734,10 +786,10 @@ public class TestAgent extends Agent {
 	     getPath(leftBase, new Pos(width-1, width-1), true),
 	     getPath(leftBase, rightBase, true),
 	     getPath(leftBase, new Pos(width-1, 0), true)};
-	for(PathSearchNode path : paths){
+	for(PathSearchNode destinationNode : paths){
 	    // unravel each path
-	    PathSearchNode currentNode = path;
-	    while(currentNode.getParent().getParent()!=null){
+	    PathSearchNode currentNode = destinationNode;
+	    while(currentNode.getParent()!=null){
 		currentNode = currentNode.getParent();
 		// mark it in the chokepoint map
 		Pos p = currentNode.getPos();
@@ -859,11 +911,25 @@ public class TestAgent extends Agent {
 	int xCenter = width/2;
 	int yCenter = height/2;
 
+	// Draw pac-mans body
 	g.setColor(Color.yellow);
-	// g.fillArc(0, 0, width-1, height-1, -135, 135);
-	//g.fillArc(0, 0, width-1, height-1, 0, 135);
 	g.fillOval(0,0,width-1,height-1);
+
+	// draw pac-mans mouth
+	g.setColor(Color.white);
+	g.fillArc(0, 0, width-1, height-1, -225, 90);
+	// draw angry eye
 	g.setColor(Color.black);
-	g.drawOval(0,0, width-1,height-1);
+	int y = (int)Math.round(width/6.0);
+	int xEyeBrow[] = {};
+	int yEyeBrow[] = {};
+	g.fillOval(xCenter, y, y, y); 
+	// Draw a black outline
+	g.setColor(Color.black);
+	g.drawArc(0, 0, width-1, height-1, -135, 270);
+	// double radius = width/2.0;
+	// int x = (int) Math.round(radius*Math.sqrt(.5));
+	// g.drawLine(xCenter, yCenter, -x, x);
+	// g.drawLine(xCenter,yCenter,-x,-x);
     }
 }
