@@ -463,6 +463,85 @@ public class TestAgent extends Agent {
 	if(debug) System.out.println("\nERROR: Search Failed");
 	return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null);
     }
+
+    private PathSearchNode getRestrictedPath(Pos start, Pos goal, boolean hasFlag){
+	// clear the debugging grid
+	if(debug) debugPathGrid = new boolean[obstacleMap.length][obstacleMap.length];
+	if(goal==null || goal.equals(start))
+	    return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null);
+	PathSearchNode currentNode = new PathSearchNode(AgentAction.DO_NOTHING, 0,
+							manhattanDist(start, goal), start, null);
+	PriorityQueue<PathSearchNode> heap = new PriorityQueue<>();
+	HashMap<Pos,PathSearchNode> searchHistory = new HashMap<>();
+	heap.add(currentNode);
+			
+	int loopCount = 0;
+	int loopLimit = obstacleMap.length*obstacleMap.length;
+	while(!heap.isEmpty() && loopCount < 999){
+	    loopCount++;
+	    
+	    // select a node to expand
+	    currentNode = heap.poll();
+	    if(searchHistory.containsKey(currentNode.getPos())){
+		continue;
+	    }
+	    searchHistory.put(currentNode.getPos(), currentNode); // add it to the search history
+	    
+	    //if(debug) debugPathGrid[currentNode.getPos().x][currentNode.getPos().y]=true;
+	    // goal test 
+	    if(currentNode.getPos().equals(goal)){
+		//unravel the stack
+		return currentNode;
+		
+	    }else{
+		// expand successors
+		int currentX = currentNode.getPos().x;
+		int currentY = currentNode.getPos().y;
+		Pos[] adjacentCells = {
+		    new Pos(currentX+1,currentY ), // east
+		    new Pos(currentX-1,currentY ), // west
+		    new Pos(currentX,currentY+1 ), // north
+		    new Pos(currentX,currentY-1 ) // south
+		};
+		int[] directions = {
+		    AgentAction.MOVE_EAST,
+		    AgentAction.MOVE_WEST,
+		    AgentAction.MOVE_NORTH,
+		    AgentAction.MOVE_SOUTH
+		};
+		for(int i = 0; i<4; i++){
+		    Pos temp = adjacentCells[i];
+		    // HomeBase is an obstacle unless the agent has the enemy flag.
+		    // Don't add to heap if temp is homeBase unless the goal is homeBase.
+		    if( ( hasFlag || !temp.equals(homeBase) ) &&
+			// Don't add to heap if there's a wall or agent in the way
+			!testTeammate(temp) /*&& testEnemy(temp)!=-1.0 */ && !testObstacle(temp)) {
+			PathSearchNode newNode = new PathSearchNode(directions[i], currentNode.pathCost+1,
+								    manhattanDist(temp,goal), temp, currentNode);
+			heap.add(newNode);
+		    }
+		}
+	    }
+	}
+	if(debug) System.out.println("\nERROR: Search Failed");
+	return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null);
+    }
+    
+    private int restrictedMoveTowards(Pos goal, boolean hasFlag){
+	PathSearchNode currentNode = getRestrictedPath(currentPos, goal, hasFlag);
+	intention = currentNode;
+	while(currentNode.getParent().getParent()!=null){
+	    // save the path for printing & debugging
+	    currentNode = currentNode.getParent();
+	    //if(debug) debugPathGrid[currentNode.getPos().x][currentNode.getPos().y] = true;
+	}
+	if(debug) {
+	    System.out.println("\nBest Move: "+moveToString(currentNode.getMove()));
+	}
+	
+	return currentNode.getMove();
+    }
+
     
     private int moveTowards(Pos goal, boolean hasFlag){
 	PathSearchNode currentNode = getPath(currentPos, goal, hasFlag);
@@ -845,9 +924,28 @@ public class TestAgent extends Agent {
     }
 
     public int defenseModeMove(){
-	return AgentAction.DO_NOTHING;
+	int exploreWidth = 0;
+	int goalX = obstacleMap.length/2;
+	int goalY = 3*obstacleMap.length/4;
+	Pos checkPoint1 = new Pos(goalX, goalY);
+	boolean doneExploring = false;
+	if(doneExploring){
+	    // 
+	    weightChokepoints();
+	    return AgentAction.DO_NOTHING;
+	}else{
+	    // explore the region around home base
+	    Pos goalPos = null;
+	    for(int y = goalY; y>obstacleMap.length/4; y--){
+		if(obstacleMap[goalX][y]==UNEXPLORED){
+		    goalPos = new Pos(goalX, goalY);
+		    break;
+		}
+	    }
+	    return restrictedMoveTowards(goalPos, false);
+	}	
     }
-    
+
     public int getMove( AgentEnvironment env ) {
 	if (debug) System.out.println("***** Processing Agent "+ID+" *****");
 
@@ -962,8 +1060,8 @@ public class TestAgent extends Agent {
 	    }    
 	}
 	if(debug) {
-	    //printObstacleMap();
-	    printChokeMap();
+	    printObstacleMap();
+	    //printChokeMap();
 	    //printAgentMap();
 	}
 
@@ -978,11 +1076,11 @@ public class TestAgent extends Agent {
 
 	// Draw pac-mans body
 	g.setColor(Color.yellow);
-	g.fillOval(0,0,width-1,height-1);
+	g.fillArc(0,0,width-1,height-1, -135, 270);
 
 	// draw pac-mans mouth
-	g.setColor(Color.white);
-	g.fillArc(0, 0, width-1, height-1, -225, 90);
+	//	g.setColor(Color.white);
+	//g.fillArc(0, 0, width-1, height-1, -225, 90);
 	// draw angry eye
 	g.setColor(Color.black);
 	int y = (int)Math.round(width/6.0);
