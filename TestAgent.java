@@ -95,6 +95,7 @@ public class TestAgent extends Agent {
     private final int ID;
     private static TestAgent agent1;
     private static TestAgent agent2;
+    private TestAgent teammate;
 
     /**
      * Share the intentions with teammates
@@ -146,11 +147,8 @@ public class TestAgent extends Agent {
     }
 
     public boolean equals(Object other){
-	if(other instanceOf TestAgent){
-	    otherAgent = (TestAgent)other;
-	    return otherAgent.ID==ID;
-	}
-	return false;
+	TestAgent otherAgent = (TestAgent)other;
+	return otherAgent.ID==ID;
     }
     
     private class Pos {
@@ -474,6 +472,27 @@ public class TestAgent extends Agent {
 	
 	return currentNode.getMove();
     }
+
+    private int pathLength(PathSearchNode n){
+	int length  = 0;
+	PathSearchNode currentNode = n;
+	while(currentNode.getParent()!=null){
+	    length++;
+	    currentNode = currentNode.getParent();
+	}
+	return length;
+    }
+
+    // returns true if this agent is closer to enemy base than the teammate
+    private boolean isCloser(){
+	TestAgent teammate;
+	if(this.equals(agent1))
+	    teammate = agent2;
+	else
+	    teammate = agent1;
+	return (this.pathLength(this.getPath(currentPos, enemyBase, false)) <=
+				teammate.pathLength( teammate.getPath(teammate.currentPos,enemyBase, false)));
+    }
     
     
     private void insertObstacle(Pos p, int status){
@@ -795,6 +814,12 @@ public class TestAgent extends Agent {
 		Pos p = currentNode.getPos();
 		chokeWeightMap[p.x][p.y]++;
 	    }
+	}
+    }
+    
+    public int getMode(){
+	if(this.isCloser()){
+	    int temp = this.mode;
 	}
     }
     
