@@ -27,7 +27,7 @@ import java.util.HashMap;
  * avoid them at all.
  * 
  */
-public class TestAgent extends Agent {
+public class wjc140030Agent extends Agent {
     /** 
      * enables debug prints 
      */
@@ -95,8 +95,8 @@ public class TestAgent extends Agent {
      */
     private static int nextID = 0;
     private final int ID;
-    private static TestAgent agent1;
-    private static TestAgent agent2;
+    private static wjc140030Agent agent1;
+    private static wjc140030Agent agent2;
     
     /**
      * Share the intentions with teammates
@@ -135,7 +135,7 @@ public class TestAgent extends Agent {
      * the matrices are instantiated.
      */
     
-    public TestAgent(){
+    public wjc140030Agent(){
 	ID = nextID++;
 	initComplete = false;
 	southInitComplete = false;
@@ -149,11 +149,11 @@ public class TestAgent extends Agent {
 	} else{
 	    agent2 = this;
 	}
-	if(debug) System.out.println("TestAgent "+ID+" created!");
+	if(debug) System.out.println("wjc140030Agent "+ID+" created!");
     }
 
     public boolean equals(Object other){
-	TestAgent otherAgent = (TestAgent)other;
+	wjc140030Agent otherAgent = (wjc140030Agent)other;
 	return otherAgent.ID==ID;
     }
     
@@ -938,7 +938,7 @@ public class TestAgent extends Agent {
 	    // mode = HUNT;
 	    mode = DEFEND;
 	} else{
-	    TestAgent teammate = (this.equals(agent1)) ? agent2 : agent1;
+	    wjc140030Agent teammate = (this.equals(agent1)) ? agent2 : agent1;
 	    if(teammate.currentPos==null){
 		agent1.mode = ATTACK;
 		agent2.mode = DEFEND;
