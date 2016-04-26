@@ -31,7 +31,7 @@ public class TestAgent extends Agent {
     /** 
      * enables debug prints 
      */
-    private static final boolean debug = true; 
+    private static final boolean debug = false; 
     
     /** 
      * a more convenient name for planting a mine 
@@ -1150,23 +1150,7 @@ public class TestAgent extends Agent {
 	// draw a circle lol
 	int xCenter = width/2;
 	int yCenter = height/2;
-
-	// Draw pac-mans body
-	g.setColor(Color.yellow);
-	g.fillArc(0,0,width-1,height-1, -135, 270);
-	// draw angry eye
-	g.setColor(Color.black);
-	int y = (int)Math.round(width/6.0);
-	int xEyeBrow[] = {};
-	int yEyeBrow[] = {};
-	g.fillOval(xCenter, y, y, y); 
-	// Draw a black outline
-	g.setColor(Color.black);
-	g.drawArc(0, 0, width-1, height-1, -135, 270);
-	// double radius = width/2;
-	// int x = (int) Math.round(radius*Math.sqrt(.5));
-	// System.out.println(x);
-	// g.drawLine(xCenter, yCenter, -x, x);
-	// g.drawLine(xCenter,yCenter,-x,-x);
+	g.setColor(Color.blue);
+	g.fillOval(0,0,width-1,height-1);
     }
 }
