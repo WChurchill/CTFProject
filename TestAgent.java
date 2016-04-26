@@ -262,25 +262,6 @@ public class TestAgent extends Agent {
 	return topRightChoke || topLeftChoke || verticalChoke || horizontalChoke;
     }
     
-    private class Surrounding{
-	boolean east;
-	boolean north;
-	boolean west;
-	boolean south;
-
-	public Surrounding(boolean east, boolean north, boolean west, boolean south){
-	    this.east = east;
-	    this.north = north;
-	    this.west = west;
-	    this.south = south;
-	}
-
-	public boolean equals(Surrounding other){
-	    // TODO: A really nasty conditional
-	    return true;
-	}
-    }
-
     private void setInitPos(boolean northAgent){
 	if (startSide==LEFT_START) {
 	    currentPos = new Pos(0, southTravelDist + (northAgent ? 2 : 0));
