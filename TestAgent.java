@@ -187,6 +187,91 @@ public class TestAgent extends Agent {
 	}
     }
 
+    private class LocalMap {
+	// x/y role of each arraylist changes based on the starting
+	// corner
+	public ArrayList<ArrayList<Integer>> map ArrayList<>();
+	// outer arraylist is +x
+	// inner arraylist is -y
+	private final int NORTH_WEST_START = 0;
+	// outer arraylist is -x
+	// inner arraylist is -y
+	private final int NORTH_EAST_START = 1;
+	// Normal coordinate system
+	// outer is +x
+	// inner is +y
+	private final int SOUTH_WEST_START = 2;
+	// outer is -x
+	// inner is +y
+	private final int SOUTH_EAST_START = 3;
+	
+	public int get(Pos p){
+	    switch(START_CORNER){
+	    case NORTH_WEST_START:
+		
+	    case NORTH_EAST_START:
+		break;
+	    case SOUTH_WEST_START:
+		break;
+	    case SOUTH_EAST_START:
+		break;
+	    }
+	    return get(p.x, p.y);
+	}
+	
+	public int get(int x, int y){
+	    try{
+		return map.get(x).get(y);
+	    }catch(IndexOutOfBoundsException e){
+		return UNEXPLORED;
+	    }
+	}
+
+	public set(Pos p, int status){
+	    try{
+		
+	    }catch(IndexOutOfBoundsException e){
+		
+	    }
+	}
+
+	public print(){
+	    int yWidth = 0;
+	    int xWidth = map.size();
+	    for(ArrayList<Integer> column : map){
+		if( column.size() > yWidth)
+		    yWidth = column.size();
+	    }
+
+	    
+	    System.out.print("[]");
+	    for (int col = 0; col<=xWidth; col++) {
+		System.out.print("[]");
+	    }
+	    System.out.println();
+	    // print each row of the map
+	    for (int row = yWidth-1; row>=0; row--){
+		System.out.print("[]");
+		for(int column = 0; column<width; column++){
+		    if(obstacleMap[column][row]==BLOCKED){
+			System.out.print("[]");
+		    }else if(obstacleMap[column][row]==UNEXPLORED){
+			System.out.print("??");
+		    }else{
+			System.out.print("  ");
+		    }
+		}
+		System.out.println("[]");
+	    }
+	    //print the bottom edge of the map
+	    System.out.print("[]");
+	    for (int col = 0; col<=width; col++) {
+		System.out.print("[]");
+	    }
+	    System.out.println();
+	}
+    }
+    
     /** Checks whether or not the given Pos is a chokepoint 1 square wide
      *  Returns false if the square is an obstacle or any immediately adjacent
      *  (north, south, east, west) square is unknown.
