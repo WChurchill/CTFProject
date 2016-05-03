@@ -1,6 +1,6 @@
 import java.util.ArrayList;
 
-private class LocalMap {
+public class LocalMap {
     // x/y role of each arraylist changes based on the starting
     // corner
     // The coordinates (0,0) indicate the starting position of the
