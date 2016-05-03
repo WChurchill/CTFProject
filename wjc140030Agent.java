@@ -85,7 +85,7 @@ public class wjc140030Agent extends Agent {
     private static double[][] agentMap;
     private static int mapWidth = -1;
     private boolean touchedBase;
-    private Pos localPos = null;
+    private Pos localPos = new Pos(0, 0);
     private Pos globalPos = null;
     // the coordinates of the agent last turn
     private Pos prevPos = null;
@@ -157,10 +157,9 @@ public class wjc140030Agent extends Agent {
     
     public wjc140030Agent(){
 	ID = nextID++;
-	localPos = new Pos(0,0);
 	if(agent1==null){
 	    agent1 = this;
-	} else{
+	}else{
 	    agent2 = this;
 	}
 	if(debug) System.out.println("wjc140030Agent "+ID+" created!");
@@ -230,32 +229,35 @@ public class wjc140030Agent extends Agent {
 	public ArrayList<ArrayList<Integer>> grid;
 
 	public LocalMap(){
-	    switch(START_CORNER){
-	    case NORTH_WEST_START:
-		break;
-	    case NORTH_EAST_START:
-		break;
-	    case SOUTH_WEST_START:
-		break;
-	    case SOUTH_EAST_START:
-		break;
-	    }		
+	    grid = new ArrayList<>(3);
+	    for(int x = 0; x<maxX; x++){
+		ArrayList<Integer> column = new ArrayList<>(3);
+		for(int y = 0; y<maxY; y++){
+		    column.set(y, UNEXPLORED);
+		}
+		grid.set(x, column);
+	    }
 	}
 
-	public int getGlobal(int x, int y){
+	public Pos getGlobalPos(int x, int y){
 	    switch(START_CORNER){
 	    case NORTH_WEST_START:
-		return this.get(x,mapWidth-y);
+		return new Pos(x,mapWidth-y);
 	    case NORTH_EAST_START:
-		return this.get(mapWidth-x, mapWidth-y);
+		return new Pos(mapWidth-x, mapWidth-y);
 	    case SOUTH_WEST_START:
-		return this.get(x, y);
+		return new Pos(x, y);
 	    case SOUTH_EAST_START:
-		return this.get(mapWidth-x, y);
+		return new Pos(mapWidth-x, y);
 	    default:
 		System.out.println("ERROR: invalid starting corner");
-		return -1;
+		return null;
 	    }
+	}
+
+	public int testGlobalObstacle(int x, int y){
+	    Pos p = getGlobalPos(x,y);
+	    return this.get(p.x, p.y);
 	}
 		
 	public int get(int x, int y){
@@ -475,6 +477,26 @@ public class wjc140030Agent extends Agent {
 	
 	switch(m){
 	case AgentAction.MOVE_EAST:
+	    switch(START_CORNER){
+	    case AgentAction.MOVE_EAST:
+		currentPos().x++;
+		break;
+	    case AgentAction.MOVE_NORTH:
+		currentPos().y++;
+		break;
+	    case AgentAction.MOVE_WEST:
+		currentPos().x--;
+		break;
+	    case AgentAction.MOVE_SOUTH:
+		currentPos().y--;
+		break;
+	    case AgentAction.DO_NOTHING:
+		break;
+	    case PLANT_MINE:
+		break;
+	    default:
+		break;
+	    }
 	    currentPos().x++;
 	    break;
 	case AgentAction.MOVE_NORTH:
@@ -661,9 +683,13 @@ public class wjc140030Agent extends Agent {
     }
 
     private void insertObstacle(Pos p, int status){
-	try{
-	    obstacleMap[p.x][p.y] = status;
-	}catch(IndexOutOfBoundsException e){}
+	if(mapWidth==-1){
+	    localMap.set(p, status);
+	}else{
+	    try{
+		obstacleMap[p.x][p.y] = status;
+	    }catch(IndexOutOfBoundsException e){}
+	}
     }
 
     private void insertAgent(Pos p, double status){
@@ -987,10 +1013,10 @@ public class wjc140030Agent extends Agent {
 	LocalMap otherLocalMap = getTeammate().localMap;
 	for(int i = 0; i< mapWidth; i++){
 	    for (int j = 0; j<mapWidth; j++) {
-		if(localMap.getGlobal(i, j) != UNEXPLORED){
-		    obstacleMap[i][j] = localMap.getGlobal(i,j);
-		}else if(otherLocalMap.getGlobal(i,j) != UNEXPLORED){
-		    obstacleMap[i][j] = otherLocalMap.getGlobal(i,j);
+		if(localMap.testGlobalObstacle(i, j) != UNEXPLORED){
+		    obstacleMap[i][j] = localMap.testGlobalObstacle(i,j);
+		}else if(otherLocalMap.testGlobalObstacle(i,j) != UNEXPLORED){
+		    obstacleMap[i][j] = otherLocalMap.testGlobalObstacle(i,j);
 		}else{
 		    obstacleMap[i][j] = UNEXPLORED;
 		}
@@ -1010,6 +1036,9 @@ public class wjc140030Agent extends Agent {
 	    }		
 	}
 
+	this.setGlobalPos(localMap);
+	getTeammate().setGlobalPos(otherLocalMap);
+	
 	int baseYcoord = mapWidth/2;
 	if(leftStart()){
 	    homeBase = new Pos(0, baseYcoord);
@@ -1020,6 +1049,10 @@ public class wjc140030Agent extends Agent {
 	}else{
 	    System.out.println("ERROR: invalid start side");
 	}
+    }
+
+    private void setGlobalPos(LocalMap map){
+	globalPos = LocalMap.getGlobal();
     }
 
     /** 
