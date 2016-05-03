@@ -546,7 +546,18 @@ public class wjc140030Agent extends Agent {
 	}
 
 	public int compareTo(PathSearchNode node){
-	    return fCost()-node.fCost();
+	    int value  = fCost()-node.fCost();
+	    if(value==0){
+		if(move==AgentAction.MOVE_WEST || move==AgentAction.MOVE_EAST){
+		    return -1;
+		}else if(node.getMove()==AgentAction.MOVE_WEST || node.getMove()==AgentAction.MOVE_EAST){
+		    return 1;
+		}else{
+		    return 0;
+		}
+	    }else{
+		return value;
+	    }
 	}
     }
 
