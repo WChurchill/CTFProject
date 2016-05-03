@@ -165,6 +165,239 @@ public class wjc140030Agent extends Agent {
 	if(debug) System.out.println("wjc140030Agent "+ID+" created!");
     }
 
+    public class LocalMap {
+	// x/y role of each arraylist changes based on the starting
+	// corner
+	// The coordinates (0,0) indicate the starting position of the
+	// agent regardless of orientation. 
+	public int maxY = 3;
+	public int maxX = 3;
+	public ArrayList<ArrayList<Integer>> grid;
+
+	public LocalMap(){
+	    grid = new ArrayList<>(3);
+	    for(int x = 0; x<maxX; x++){
+		ArrayList<Integer> column = new ArrayList<>(3);
+		for(int y = 0; y<maxY; y++){
+		    column.set(y, UNEXPLORED);
+		}
+		grid.set(x, column);
+	    }
+	}
+
+	public Pos getGlobalPos(int x, int y){
+	    switch(START_CORNER){
+	    case NORTH_WEST_START:
+		return new Pos(x,mapWidth-y);
+	    case NORTH_EAST_START:
+		return new Pos(mapWidth-x, mapWidth-y);
+	    case SOUTH_WEST_START:
+		return new Pos(x, y);
+	    case SOUTH_EAST_START:
+		return new Pos(mapWidth-x, y);
+	    default:
+		System.out.println("ERROR: invalid starting corner");
+		return null;
+	    }
+	}
+
+	public int testGlobalObstacle(int x, int y){
+	    Pos p = getGlobalPos(x,y);
+	    return this.get(p.x, p.y);
+	}
+		
+	public int get(int x, int y){
+	    if(x<0 || y<0){
+		return BLOCKED;
+	    }else if(x>=maxX || y>=maxY){
+		return UNEXPLORED;
+	    }else{
+		return grid.get(x).get(y);
+	    }
+	}
+
+	public int getRelative(Pos origin, int deltaX, int deltaY){
+	    switch(START_CORNER){
+	    case NORTH_WEST_START:
+		return this.get(origin.x+deltaX, origin.y-deltaY);
+	    case NORTH_EAST_START:
+		return this.get(origin.x-deltaX, origin.y-deltaY);
+	    case SOUTH_WEST_START:
+		return this.get(origin.x+deltaX, origin.y+deltaY);
+	    case SOUTH_EAST_START:
+		return this.get(origin.x-deltaX, origin.y+deltaY);
+	    default:
+		System.out.println("ERROR: invalid starting corner");
+		return -1;
+	    }
+	}
+
+	private void increaseX(){
+	    maxX++;
+	    ArrayList<Integer> newColumn = new ArrayList<>(maxY);
+	    for(int y = 0; y<maxY; y++){
+		newColumn.set(y, UNEXPLORED);
+	    }
+	    grid.add(newColumn);
+	}
+
+	private void increaseY(){
+	    // increase the size of each y array by one
+	    maxY++;
+	    for(int x = 0; x<maxX; x++){
+		grid.get(x).add(UNEXPLORED);
+	    }
+	}
+	
+	public void set(Pos p, int status){
+	    int x = p.x;
+	    int y = p.y;
+
+	    if(grid.size()>x){
+		ArrayList<Integer> column = grid.get(x);
+		if(column.size()>y){
+		    column.set(y, status);
+		}else{
+		    increaseY();
+		    this.set(p,status);
+		}
+	    }else{
+		increaseX();
+		this.set(p, status);
+	    }
+	}
+
+	public void print(){
+	    int yWidth = 0;
+	    int xWidth = grid.size();
+	    for(ArrayList<Integer> column : grid){
+		if( column.size() > yWidth)
+		    yWidth = column.size();
+	    }
+
+	    
+	    System.out.print("[]");
+	    for (int col = 0; col<=xWidth; col++) {
+		System.out.print("[]");
+	    }
+	    System.out.println();
+	    // print each row of the map
+	    for (int row = yWidth-1; row>=0; row--){
+		System.out.print("[]");
+		for(int column = 0; column<xWidth; column++){
+		    if(obstacleMap[column][row]==BLOCKED){
+			System.out.print("[]");
+		    }else if(obstacleMap[column][row]==UNEXPLORED){
+			System.out.print("??");
+		    }else{
+			System.out.print("  ");
+		    }
+		}
+		System.out.println("[]");
+	    }
+	    //print the bottom edge of the map
+	    System.out.print("[]");
+	    for (int col = 0; col<=xWidth; col++) {
+		System.out.print("[]");
+	    }
+	    System.out.println();
+	}
+    }
+
+    
+    /**
+     * Checks the map and calculates the quickest route to the specified base
+     * returns the best direction
+     *
+     */
+
+    private class PathSearchNode implements Comparable<PathSearchNode>{
+	private int move;
+	private int pathCost;
+	private int manhattan;
+	private Pos pos; // The position that results from making the move
+	private PathSearchNode parentNode;
+	
+	public PathSearchNode(int move, int pathCost,int manhattan, Pos pos, PathSearchNode parent){
+	    this.move = move;
+	    this.pathCost = pathCost;
+	    this.manhattan = manhattan;
+	    this.pos = pos;
+	    this.parentNode = parent;
+	}
+
+	public int getPathCost(){
+	    return pathCost;
+	}
+
+	public int fCost(){
+	    return pathCost+manhattan;
+	}
+
+	public int getManhattan(){
+	    return manhattan;
+	}
+	
+	public int getMove(){
+	    return move;
+	}
+
+	public Pos getPos(){
+	    return pos;
+	}
+
+	public PathSearchNode getParent(){
+	    return parentNode;
+	}
+
+	public int compareTo(PathSearchNode node){
+	    int value  = fCost()-node.fCost();
+	    if(value==0){
+		if(move==AgentAction.MOVE_WEST || move==AgentAction.MOVE_EAST){
+		    return -1;
+		}else if(node.getMove()==AgentAction.MOVE_WEST || node.getMove()==AgentAction.MOVE_EAST){
+		    return 1;
+		}else{
+		    return 0;
+		}
+	    }else{
+		return value;
+	    }
+	}
+    }
+
+    
+    public class Pos {
+	public int x, y;
+	
+	public Pos(int x, int y){
+	    this.x = x;
+	    this.y = y;
+	}
+
+	public String toString(){
+	    return "("+x+","+y+")";
+	}
+
+	@Override
+	public int hashCode(){
+	    int hash = 3;
+	    hash = hash * 5 + x;
+	    hash = hash * 13 + y;
+	    return hash;
+	}
+	
+	public boolean equals(Object other){
+	    Pos p = (Pos) other;
+	    return x == p.x && y == p.y;
+	}
+
+	public Pos clone(){
+	    return new Pos(x,y);
+	}
+    }
+
+    
     public boolean equals(Object other){
 	wjc140030Agent otherAgent = (wjc140030Agent)other;
 	return otherAgent.ID==ID;
