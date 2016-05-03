@@ -1,3 +1,5 @@
+import java.util.ArrayList;
+
 private class LocalMap {
     // x/y role of each arraylist changes based on the starting
     // corner
