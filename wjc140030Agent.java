@@ -253,9 +253,13 @@ public class wjc140030Agent extends Agent {
 	    int x = p.x;
 	    int y = p.y;
 
-	    if(grid.size()>x){
+	    if(x<0){
+		return;
+	    }else if(grid.size()>x){
 		ArrayList<Integer> column = grid.get(x);
-		if(column.size()>y){
+		if(y<0){
+		    return;
+		}else if(column.size()>y){
 		    column.set(y, status);
 		}else{
 		    increaseY();
