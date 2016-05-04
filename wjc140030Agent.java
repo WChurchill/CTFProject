@@ -175,13 +175,13 @@ public class wjc140030Agent extends Agent {
 	public ArrayList<ArrayList<Integer>> grid;
 
 	public LocalMap(){
-	    grid = new ArrayList<>(3);
+	    grid = new ArrayList<>(maxX);
 	    for(int x = 0; x<maxX; x++){
-		ArrayList<Integer> column = new ArrayList<>(3);
+		ArrayList<Integer> column = new ArrayList<>(maxY);
 		for(int y = 0; y<maxY; y++){
-		    column.set(y, UNEXPLORED);
+		    column.add(UNEXPLORED);
 		}
-		grid.set(x, column);
+		grid.add(column);
 	    }
 	}
 
@@ -537,7 +537,7 @@ public class wjc140030Agent extends Agent {
 		currentPos().y++;
 	    break;
 	case AgentAction.MOVE_WEST:
-	    if(rightStart )
+	    if(rightStart())
 		currentPos().x--;
 	    else
 		currentPos().x++;
@@ -1039,7 +1039,7 @@ public class wjc140030Agent extends Agent {
     }
     
     private void setGlobalPos(LocalMap map){
-	globalPos = LocalMap.getGlobal();
+	//globalPos = LocalMap.getGlobalPos(loca);
     }
 
     /** 
