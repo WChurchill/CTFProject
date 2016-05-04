@@ -778,31 +778,28 @@ public class wjc140030Agent extends Agent {
 	based on the isAgent[Direction] function
 	*/
 
-	int currentRow = this.currentPos().y;
-	int currentRow = this.currentPos().x;
-
 	for(int i = 0; i < agentMap.length;i++)
 		for(int j = 0 ; j < agentMap[i].length;j++)
 			agentMap[i][j]=1;
 
 	if(agentRightFar){
-		for(int i = currentRow+1; i < agentMap.length;i++)
+		for(int i = x+1; i < agentMap.length;i++)
 			for(int j = 0 ; j < agentMap[i].length;j++)
 				agentMap[i][j]=0;
 	}	  	
 	if(agentUpFar){
 		for(int i = 0; i < agentMap.length;i++)
-			for(int j = currentCol+1 ; j < agentMap[i].length;j++)
+			for(int j = y+1 ; j < agentMap[i].length;j++)
 				agentMap[i][j]=0;
 	}
 	if(agentLeftFar){
-		for(int i = currentRow-1; i >=0 ;i--)
+		for(int i = x-1; i >=0 ;i--)
 			for(int j = 0 ; j < agentMap[i].length;j++)
 				agentMap[i][j]=0;
 	}
 	if(agentDownFar){
 		for(int i = 0; i < agentMap.length;i++)
-			for(int j = currentCol-1 ; j >=0 ;j--)
+			for(int j = y-1 ; j >=0 ;j--)
 				agentMap[i][j]=0;
 	}
 
