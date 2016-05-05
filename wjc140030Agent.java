@@ -768,9 +768,7 @@ public class wjc140030Agent extends Agent {
 	boolean agentDownFar = e.isAgentSouth(e.ENEMY_TEAM, true);
 
 	/*
-	-1 = 100% chance theyre there
-	1 = 100% chance they arent there
-	0.0 = possibility that an enemy is there
+	value of agent[x][y] = probability of enemy being in a square.
 
 	checks to see if the enemy is far away (mor than 1 space) and updates 
 	agentMap accordingly. Very basic right now. Does not take into account
@@ -780,27 +778,27 @@ public class wjc140030Agent extends Agent {
 
 	for(int i = 0; i < agentMap.length;i++)
 		for(int j = 0 ; j < agentMap[i].length;j++)
-			agentMap[i][j]=1;
+			insertAgent(new Pos(i,j),1,false);
 
 	if(agentRightFar){
 		for(int i = x+1; i < agentMap.length;i++)
 			for(int j = 0 ; j < agentMap[i].length;j++)
-				agentMap[i][j]=0;
+				insertAgent(new Pos(i,j),0,false);
 	}	  	
 	if(agentUpFar){
 		for(int i = 0; i < agentMap.length;i++)
 			for(int j = y+1 ; j < agentMap[i].length;j++)
-				agentMap[i][j]=0;
+				insertAgent(new Pos(i,j),0,false);
 	}
 	if(agentLeftFar){
 		for(int i = x-1; i >=0 ;i--)
 			for(int j = 0 ; j < agentMap[i].length;j++)
-				agentMap[i][j]=0;
+				insertAgent(new Pos(i,j),0,false);
 	}
 	if(agentDownFar){
 		for(int i = 0; i < agentMap.length;i++)
 			for(int j = y-1 ; j >=0 ;j--)
-				agentMap[i][j]=0;
+				insertAgent(new Pos(i,j),0,false);
 	}
 
 	boolean[] agents 
