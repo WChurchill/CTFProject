@@ -334,9 +334,9 @@ public class TestAgent extends Agent {
 	}
     }
     
-    private Pos toGlobalPos(Pos agentPos, Pos relativePos){
-	return new Pos(relativePos.x+agentPos.x,
-		       relativePos.y+agentPos.y);
+    private Pos toGlobalPos(Pos relativePos){
+	return new Pos(relativePos.x+currentPos.x,
+		       relativePos.y+currentPos.y);
     }
 
     private Pos toRelativePos(Pos agentPos, Pos globalPos){
