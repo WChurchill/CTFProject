@@ -13,7 +13,7 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.PriorityQueue;
 import java.util.HashMap;
-
+import java.util.ListIterator;
 /**
  * A sample agent implementing the Agent interface.
  * Your class should look similar to this, except it should be called
@@ -83,6 +83,7 @@ public class wjc140030Agent extends Agent {
 	 * -0.5 indicates the possibility that an enemy is there
 	 */
 	private static double[][] agentMap;
+	private ArrayList<ArrayList<Double>> agentProbMap= new ArrayList<ArrayList<Double>>();
 	private static int mapWidth = -1;
 	private boolean touchedBase;
 	private Pos localPos = new Pos(0, 0);
@@ -93,7 +94,7 @@ public class wjc140030Agent extends Agent {
 	/** 
 	 * All of the previous moves made 
 	 */
-	private ArrayList<Integer> moveHistory = new ArrayList<>();
+	private ArrayList<Integer> moveHistory = new ArrayList<Integer>();
 		
 	/** 
 	 * An id used to differentiate the agents 
@@ -723,6 +724,17 @@ public class wjc140030Agent extends Agent {
 	}
 	
 	private void updateMaps(AgentEnvironment e){
+
+	int newAgentProbMapSize = ((moveHistory.size()+1)*(moveHistory.size()+2))/2;
+	ListIterator arrItr = agentProbMap.listIterator();
+	while(arrItr.hasNext()){
+		arrItr.next().add(new Double(1/newAgentProbMapSize));
+		ListIterator insideItr = arrItr.next().listIterator();
+		while(insideItr.hasNext()){
+			insideItr.next() = new Double(1/newAgentProbMapSize);
+		}			
+	}	
+
 	// execute if we don't know the width of the map
 	if(mapWidth==-1){
 		// test for our teammates position
@@ -739,7 +751,7 @@ public class wjc140030Agent extends Agent {
 				
 		}
 	}
-	
+
 	boolean right = e.isObstacleEastImmediate();
 	boolean up = e.isObstacleNorthImmediate();
 	boolean left = e.isObstacleWestImmediate();
@@ -778,27 +790,27 @@ public class wjc140030Agent extends Agent {
 
 	for(int i = 0; i < agentMap.length;i++)
 		for(int j = 0 ; j < agentMap[i].length;j++)
-			insertAgent(new Pos(i,j),1,false);
+			insertAgent(new Pos(i,j),1);
 
 	if(agentRightFar){
 		for(int i = x+1; i < agentMap.length;i++)
 			for(int j = 0 ; j < agentMap[i].length;j++)
-				insertAgent(new Pos(i,j),0,false);
+				insertAgent(new Pos(i,j),0);
 	}	  	
 	if(agentUpFar){
 		for(int i = 0; i < agentMap.length;i++)
 			for(int j = y+1 ; j < agentMap[i].length;j++)
-				insertAgent(new Pos(i,j),0,false);
+				insertAgent(new Pos(i,j),0);
 	}
 	if(agentLeftFar){
 		for(int i = x-1; i >=0 ;i--)
 			for(int j = 0 ; j < agentMap[i].length;j++)
-				insertAgent(new Pos(i,j),0,false);
+				insertAgent(new Pos(i,j),0);
 	}
 	if(agentDownFar){
 		for(int i = 0; i < agentMap.length;i++)
 			for(int j = y-1 ; j >=0 ;j--)
-				insertAgent(new Pos(i,j),0,false);
+				insertAgent(new Pos(i,j),0);
 	}
 
 	boolean[] agents 
