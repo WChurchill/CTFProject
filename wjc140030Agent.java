@@ -13,7 +13,7 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.PriorityQueue;
 import java.util.HashMap;
-
+import java.util.ListIterator;
 /**
  * A sample agent implementing the Agent interface.
  * Your class should look similar to this, except it should be called
@@ -28,6 +28,7 @@ import java.util.HashMap;
  * 
  */
 public class wjc140030Agent extends Agent {
+    
     /** 
      * enables debug prints 
      */
@@ -170,6 +171,7 @@ public class wjc140030Agent extends Agent {
 	public int width(){return width;}
 	private HashMap<Pos, Boolean> bombMap = new HashMap<>();
 	
+	public abstract void update(AgentEnvironment e);
 	public abstract void insertObstacle(Pos p, int status, boolean relative); // sets the value at p to status
 	public abstract void insertBomb(Pos p, boolean relative); // inserts a bomb into the hashmap of positions
 	public abstract void removeBomb(Pos p, boolean relative); // remvoves a bomb from the hashmap
@@ -309,6 +311,98 @@ public class wjc140030Agent extends Agent {
 	    }
 	}
 
+	public void update(AgentEnvironment e){
+	    // execute if we don't know the width of the map
+	    boolean right = e.isObstacleEastImmediate();
+	    boolean up = e.isObstacleNorthImmediate();
+	    boolean left = e.isObstacleWestImmediate();
+	    boolean down = e.isObstacleSouthImmediate();
+	    if(debug && currentPos==null) System.out.println("ERROR: currentPos==null");
+
+	    int x = currentPos.x;
+	    int y = currentPos.y;
+
+	    currentMap.insertObstacle(new Pos(1,  0),  right ? BLOCKED : EMPTY, true);
+	    currentMap.insertObstacle(new Pos(0,  1),  up    ? BLOCKED : EMPTY, true);
+	    currentMap.insertObstacle(new Pos(-1, 0),  left  ? BLOCKED : EMPTY, true);
+	    currentMap.insertObstacle(new Pos(0,  -1), down  ? BLOCKED : EMPTY, true);
+		
+
+	    // Update immediate agent positions
+	    boolean agentRightImm = e.isAgentEast(e.ENEMY_TEAM, true);
+	    boolean agentUpImm = e.isAgentNorth(e.ENEMY_TEAM, true);
+	    boolean agentLeftImm = e.isAgentWest(e.ENEMY_TEAM, true);
+	    boolean agentDownImm = e.isAgentSouth(e.ENEMY_TEAM, true);
+
+	    //list of voolean variables which indicate an enemy is mor ethan one
+	    //square away from the agent in a given direction.
+	    boolean agentRightFar = e.isAgentEast(e.ENEMY_TEAM, true);
+	    boolean agentUpFar = e.isAgentNorth(e.ENEMY_TEAM, true);
+	    boolean agentLeftFar = e.isAgentWest(e.ENEMY_TEAM, true);
+	    boolean agentDownFar = e.isAgentSouth(e.ENEMY_TEAM, true);
+
+	    /*
+	      value of agent[x][y] = probability of enemy being in a square.
+
+	      checks to see if the enemy is far away (mor than 1 space) and updates 
+	      agentMap accordingly. Very basic right now. Does not take into account
+	      how many spaces the other team has moved. Just stores where they could be
+	      based on the isAgent[Direction] function
+	    */
+
+	    for(int i = 0; i < agentMap.length;i++)
+		for(int j = 0 ; j < agentMap[i].length;j++)
+		    insertAgent(new Pos(i,j),1, true);
+
+	    if(agentRightFar){
+		for(int i = x+1; i < agentMap.length;i++)
+		    for(int j = 0 ; j < agentMap[i].length;j++)
+			insertAgent(new Pos(i,j),0, true);
+	    }	  	
+	    if(agentUpFar){
+		for(int i = 0; i < agentMap.length;i++)
+		    for(int j = y+1 ; j < agentMap[i].length;j++)
+			insertAgent(new Pos(i,j),0, true);
+	    }
+	    if(agentLeftFar){
+		for(int i = x-1; i >=0 ;i--)
+		    for(int j = 0 ; j < agentMap[i].length;j++)
+			insertAgent(new Pos(i,j),0, true);
+	    }
+	    if(agentDownFar){
+		for(int i = 0; i < agentMap.length;i++)
+		    for(int j = y-1 ; j >=0 ;j--)
+			insertAgent(new Pos(i,j),0, true);
+	    }
+
+	    boolean[] agents = {agentRightImm, agentUpImm, agentLeftImm, agentDownImm};
+	    int sum = 0;
+	    for (int i = 0; i < agents.length; i++) {
+		sum+= agents[i] ? 1 : 0;
+	    }
+	    // We know for sure where both of the enemy agents are
+	    // THEY'RE RIGHT NEXT TO US!!!!
+	    if(sum==2){
+		// clear the map of .5's and -1's
+		for(int row = 0; row < agentMap.length; row++){
+		    for(int col = 0; col<agentMap[row].length; col++){
+			if(agentMap[col][row]!=1){
+			    agentMap[col][row] = 0;
+			}
+		    }
+		}
+		if(agentRightImm)
+		    insertAgent(new Pos(x+1,y), -1, true);
+		if(agentLeftImm)
+		    insertAgent(new Pos(x-1,y), -1, true);
+		if(agentUpImm)
+		    insertAgent(new Pos(x,y+1), -1, true);
+		if(agentDownImm)
+		    insertAgent(new Pos(x,y-1), -1, true);
+	    }
+	}
+
+	
 	/** Checks whether or not the given Pos is a chokepoint 1 square wide
 	 *  Returns false if the square is an obstacle or any immediately adjacent
 	 *  (north, south, east, west) square is unknown.
@@ -397,21 +491,9 @@ public class wjc140030Agent extends Agent {
 	    int minDist = chokeWeightMap.length; //breaks ties between chokepoints with equal weights
 	    Pos bestChoke = new Pos(0,0);
 
-	    for (int y = 0; y<chokeWeightMap.length; y++) {
-		for(int x = 0; x<chokeWeightMap[y].length; x++){
-		    if(chokeWeightMap[x][y] > chokeWeightMap[bestChoke.x][bestChoke.y]){
-			Pos p = new Pos(x,y);
-			if(!p.equals(homeBase))
-			    bestChoke = p;
-		    }else if(chokeWeightMap[x][y]==chokeWeightMap[bestChoke.x][bestChoke.y]){
-			// break ties by choosing the one closer to home base
-			int d1 = pathLength(getPath(bestChoke,homeBase,true));
-			Pos p = new Pos(x,y);
-			if(p.equals(homeBase))
-			    continue;
-			int d2 = pathLength(getPath(p,homeBase,true));
-			bestChoke = (d2<d1) ? new Pos(x,y) : bestChoke;
-		    }
+	    for (int x = 0; x<chokeWeightMap.length; x++) {
+		for(int y = 0; x<chokeWeightMap[x].length; y++){
+		    
 		}
 	    }
 	    return bestChoke;
@@ -473,12 +555,10 @@ public class wjc140030Agent extends Agent {
 		    double prob = agentMap[column][row];
 		    if(obstacleMap[column][row]==BLOCKED){
 			System.out.print("[ ]");
-		    } else if(prob==1.0){
-			System.out.print("1.0");
 		    } else if(prob==0.0){
 			System.out.print("   ");
 		    } else{
-			System.out.printf("%.2f", prob);
+			System.out.printf("%3.2f", prob);
 		    }		    
 		
 		}
@@ -849,6 +929,21 @@ public class wjc140030Agent extends Agent {
 		}
 	    }
 	}
+
+	public void update(AgentEnvironment e){
+        }
+	
+	public void printAgentMap(){
+	    System.out.println("not implemented");
+	}
+
+	public void printChokeWeights() {
+            
+	}
+
+	public void printChokeMap(){
+	    
+	}
 	
 	public void printObstacleMap(){
 	    System.out.print("[]");
@@ -877,50 +972,38 @@ public class wjc140030Agent extends Agent {
 	    }
 	    System.out.println();
 	}
+    }
 
-	public void merge(){
-	    int width = completeMap.width()-1;
-	    // copy the obstacle map
-	    for(int x = 0; x<width; x++){
-		for(int y = 0; y < width; y++){
-		    int status = obstacleMap.get(x).get(y);
-		    if(status != UNEXPLORED){
-			switch(startCorner){
-			case NORTH_WEST_START:
-			    completeMap.insertObstacle(new Pos(x,completeMap.width()-y), status, false);
-			    break;
-			case NORTH_EAST_START:
-			    completeMap.insertObstacle(new Pos(completeMap.width()-x, completeMap.width()-y),
-						       status, false);
-			    break;
-			case SOUTH_WEST_START:
-			    completeMap.insertObstacle(new Pos(x, y), status, false);
-			    break;
-			case SOUTH_EAST_START:
-			    completeMap.insertObstacle(new Pos(completeMap.width()-x, y), status, false);
-			    break;
-			default:
-			    System.out.println("ERROR: invalid starting corner");
-			    return;
-			}
+    public void merge(){
+	int width = completeMap.width()-1;
+	// copy the obstacle map
+	for(int x = 0; x<width; x++){
+	    for(int y = 0; y < width; y++){
+		int status = dynamicMap.testGlobalObstacle(new Pos(x,y));
+		if(status != UNEXPLORED){
+		    switch(startCorner){
+		    case NORTH_WEST_START:
+			completeMap.insertObstacle(new Pos(x,completeMap.width()-y), status, false);
+			break;
+		    case NORTH_EAST_START:
+			completeMap.insertObstacle(new Pos(completeMap.width()-x, completeMap.width()-y),
+						   status, false);
+			break;
+		    case SOUTH_WEST_START:
+			completeMap.insertObstacle(new Pos(x, y), status, false);
+			break;
+		    case SOUTH_EAST_START:
+			completeMap.insertObstacle(new Pos(completeMap.width()-x, y), status, false);
+			break;
+		    default:
+			System.out.println("ERROR: invalid starting corner");
+			return;
 		    }
 		}
 	    }
-	    // copy the mine map
-	    // for(Pos p : )
 	}
-
-	public void printChokeMap(){
-	    System.out.println("Not implemented");
-	}
-	
-	public void printChokeWeights(){
-	    System.out.println("Not implemented");
-	}
-	
-	public void printAgentMap(){
-	    System.out.println("Not implemented");	    
-	}
+	// copy the mine map
+	// for(Pos p : )
     }
 
     
@@ -985,7 +1068,7 @@ public class wjc140030Agent extends Agent {
 	}
     }
 
-    
+	
     public class Pos {
 	public int x, y;
 	
@@ -1016,7 +1099,7 @@ public class wjc140030Agent extends Agent {
 	}
     }
 
-    
+	
     public boolean equals(Object other){
 	wjc140030Agent otherAgent = (wjc140030Agent)other;
 	return otherAgent.ID==ID;
@@ -1031,10 +1114,7 @@ public class wjc140030Agent extends Agent {
 	    System.out.println("ERROR: teammate not found");
 	    return null;
 	}
-    }    
-        
-        
-    
+    }
 
     private Pos toRelativePos(Pos agentPos, Pos globalPos){
 	return new Pos(globalPos.x-agentPos.x,
@@ -1093,7 +1173,7 @@ public class wjc140030Agent extends Agent {
     private int manhattanDist(Pos p1, Pos p2){
 	return (int) Math.abs(p1.x-p2.x)+Math.abs(p1.y-p2.y);
     }
-    
+	
 
     /** 
      * Using A* search and the current obstacle map of the environment find 
@@ -1104,7 +1184,7 @@ public class wjc140030Agent extends Agent {
      */
     // TODO: fix pathfinding with possession of flag
     // TODO: Incorporate probability matrices
-    private PathSearchNode getPath(Pos start, Pos goal, boolean hasFlag){
+    private PathSearchNode getPath(Pos start, Pos goal, boolean hasFlag, boolean random){
 	// clear the debugging grid
 	// if(debug) debugPathGrid = new boolean[obstacleMap.length][obstacleMap.length];
 	if(goal==null || goal.equals(start))
@@ -1116,18 +1196,14 @@ public class wjc140030Agent extends Agent {
 	HashMap<Pos,PathSearchNode> searchHistory = new HashMap<>();
 	heap.add(currentNode);
 			
-	int loopCount = 0;
-	int loopLimit = currentMap.width()*currentMap.width();
-	while(!heap.isEmpty() && loopCount < 999){
-	    loopCount++;
-	    
+	while(!heap.isEmpty()){
 	    // select a node to expand
 	    currentNode = heap.poll();
 	    if(searchHistory.containsKey(currentNode.getPos())){
 		continue;
 	    }
 	    searchHistory.put(currentNode.getPos(), currentNode); // add it to the search history
-	    
+		
 	    //if(debug) debugPathGrid[currentNode.getPos().x][currentNode.getPos().y]=true;
 	    // goal test 
 	    if(currentNode.getPos().equals(goal)){
@@ -1142,33 +1218,41 @@ public class wjc140030Agent extends Agent {
 		    new Pos(0,1 ), // north
 		    new Pos(0,-1 ) // south
 		};
-		int[] directions = {
-		    AgentAction.MOVE_EAST,
-		    AgentAction.MOVE_WEST,
-		    AgentAction.MOVE_NORTH,
-		    AgentAction.MOVE_SOUTH
+		PathSearchNode[] newNodes = {
+		     new PathSearchNode(AgentAction.MOVE_EAST, currentNode.pathCost+1,
+					manhattanDist(adjacentCells[0], goal), adjacentCells[0], currentNode),
+		     new PathSearchNode(AgentAction.MOVE_WEST, currentNode.pathCost+1,
+					manhattanDist(adjacentCells[1],goal), adjacentCells[1], currentNode),
+		     new PathSearchNode(AgentAction.MOVE_NORTH, currentNode.pathCost+1,
+					manhattanDist(adjacentCells[2],goal), adjacentCells[2], currentNode),
+		     new PathSearchNode(AgentAction.MOVE_SOUTH, currentNode.pathCost+1,
+					manhattanDist(adjacentCells[3],goal), adjacentCells[3], currentNode),
 		};
-		for(int i = 0; i<4; i++){
-		    Pos temp = adjacentCells[i];
+		// shuffle the order
+		if(random){
+		    
+		}
+		for(int i = 0; i<newNodes.length; i++){
+		    Pos temp = newNodes[i].getPos();
 		    // HomeBase is an obstacle unless the agent has the enemy flag.
 		    // Don't add to heap if temp is homeBase unless the goal is homeBase.
 		    if( ( hasFlag || !temp.equals(homeBase) ) &&
 			// Don't add to heap if there's a wall or agent in the way
 			!currentMap.testTeammate(temp, true) /*&& testEnemy(temp)!=-1.0 */ &&
 			!currentMap.isBlocked(temp, true)) {
-			PathSearchNode newNode = new PathSearchNode(directions[i], currentNode.pathCost+1,
-								    manhattanDist(temp,goal), temp, currentNode);
-			heap.add(newNode);
+			
+			heap.add(newNodes[i]);
 		    }
 		}
 	    }
 	}
 	if(debug) System.out.println("\nERROR: Search Failed");
 	return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null);
+
     }
     
     private int moveTowards(Pos goal, boolean hasFlag){
-	PathSearchNode currentNode = getPath(currentPos, goal, hasFlag);
+	PathSearchNode currentNode = getPath(currentPos, goal, hasFlag, false);
 	intention = currentNode;
 	while(currentNode.getParent()!=null &&
 	      currentNode.getParent().getParent()!=null){
@@ -1198,96 +1282,11 @@ public class wjc140030Agent extends Agent {
     }
 
     private boolean rightStart(){
-    	return startCorner==NORTH_EAST_START || startCorner==SOUTH_EAST_START;
+	return startCorner==NORTH_EAST_START || startCorner==SOUTH_EAST_START;
     }
+
     
-    private void updateMaps(AgentEnvironment e){
-	// execute if we don't know the width of the map
-	if(currentMap instanceof DynamicGrid){
-	    // test for our teammates position
-	    if(!e.isAgentNorth(e.OUR_TEAM, false) && !e.isAgentSouth(e.OUR_TEAM, false)){
-		// compute the map width
-		
-	    }else if(e.isAgentNorth(e.OUR_TEAM, true)){
-		
-	    }else if(e.isAgentSouth(e.OUR_TEAM, true)){
-		
-	    }else if(e.isBaseNorth(e.ENEMY_TEAM, true)){
-		
-	    }else if(e.isBaseSouth(e.ENEMY_TEAM, true)){
-				
-	    }
-	}
-	
-	boolean right = e.isObstacleEastImmediate();
-	boolean up = e.isObstacleNorthImmediate();
-	boolean left = e.isObstacleWestImmediate();
-	boolean down = e.isObstacleSouthImmediate();
-	if(debug && currentPos==null) System.out.println("ERROR: currentPos==null");
-
-	int x = currentPos.x;
-	int y = currentPos.y;
-
-	currentMap.insertObstacle(new Pos(1,  0),  right ? BLOCKED : EMPTY, true);
-	currentMap.insertObstacle(new Pos(0,  1),  up    ? BLOCKED : EMPTY, true);
-	currentMap.insertObstacle(new Pos(-1, 0),  left  ? BLOCKED : EMPTY, true);
-	currentMap.insertObstacle(new Pos(0,  -1), down  ? BLOCKED : EMPTY, true);
-
-	// Update immediate agent positions
-	boolean agentRight = e.isAgentEast(e.ENEMY_TEAM, true);
-	boolean agentUp = e.isAgentNorth(e.ENEMY_TEAM, true);
-	boolean agentLeft = e.isAgentWest(e.ENEMY_TEAM, true);
-	boolean agentDown = e.isAgentSouth(e.ENEMY_TEAM, true);
-
-	boolean[] agents = {agentRight, agentUp, agentLeft, agentDown};
-	int sum = 0;
-	for (int i = 0; i < agents.length; i++) {
-	    sum+= agents[i] ? 1 : 0;
-	}
-	// We know for sure where both of the enemy agents are
-	// THEY'RE RIGHT NEXT TO US!!!!
-	if(sum==2){
-	    // clear the map of .5's and -1's
-	    for(int row = 0; row < agentMap.length; row++){
-		for(int col = 0; col<agentMap[row].length; col++){
-		    if(agentMap[col][row]!=1){
-			agentMap[col][row] = 0;
-		    }
-		}
-	    }
-	    if(agentRight)
-		currentMap.insertAgent(new Pos(1,0), -1, true);
-	    if(agentLeft)
-		currentMap.insertAgent(new Pos(-1,0), -1, true);
-	    if(agentUp)
-		currentMap.insertAgent(new Pos(0,1), -1, true);
-	    if(agentDown)
-		currentMap.insertAgent(new Pos(0,-1), -1, true);
-	}
-	
-	if(agentRight){
-	    
-	}else{
-	    
-	}
-	if(agentUp){
-	    
-	}else{
-	    
-	}
-	if(agentLeft){
-	    
-	}else{
-	    
-	}
-	if(agentDown){
-	    
-	}else{
-	    
-	}
-	
-    }
-
+    
     private String moveToString(int m){
 	switch(m){
 	case AgentAction.MOVE_EAST:
@@ -1306,7 +1305,7 @@ public class wjc140030Agent extends Agent {
 	    return "ERROR: INVALID MOVE: "+m;
 	}
     }
-        
+
     private boolean onHomeCol(AgentEnvironment env){
 	// Returns true if home base is not to the east or west
 	return !( env.isBaseWest(env.OUR_TEAM, false) || env.isBaseEast(env.OUR_TEAM, false) );
@@ -1317,7 +1316,7 @@ public class wjc140030Agent extends Agent {
 	int mapWidth = northTravelDist + southTravelDist + 1;
 	completeMap = new CompleteGrid(mapWidth);
 
-	DynamicGrid otherMap = getTeammate().getDynamicMap();
+	DynamicGrid otherMap = getTeammate().dynamicMap;
 	for(int x = 1; x < mapWidth-1; x++){
 	    for (int y = 0; y<mapWidth; y++){
 		Pos p = new Pos(x,y);
@@ -1336,37 +1335,20 @@ public class wjc140030Agent extends Agent {
 	
 	setGlobalPos();
 	getTeammate().setGlobalPos();
+
 	
-	int baseYcoord = mapWidth/2;
-	if(leftStart()){
-	    homeBase = new Pos(0, baseYcoord);
-	    enemyBase = new Pos(mapWidth-1, baseYcoord);
-	}else if(rightStart()){
-	    homeBase = new Pos(mapWidth-1, baseYcoord);
-	    enemyBase = new Pos(0, baseYcoord);
-	}else{
-	    System.out.println("ERROR: invalid start corner: "+startCorner);
-	}
-	currentMap = completeMap;
     }
 
-    public DynamicGrid getDynamicMap(){
-	return dynamicMap;
+
+    private void insertMapData(){
+	// localMap
+	// bomb map
+	// agent map
+	// chokemap
     }
-    /** 
-     * Converts currentPos to a position relative to the southwest corner of 
-     * completeMap
-     */
-    public void setGlobalPos(){
 	
-    }
-    
-    /** 
-     * Calculates 6 paths between points of interest in the map and weights
-     * each chokepoint based on the number of optimal paths that use it
-     */
-    private void weightChokepoints(){
-	
+    private void setGlobalPos(){
+	//globalPos = LocalMap.getGlobalPos(loca);
     }
 
     /**
@@ -1396,7 +1378,7 @@ public class wjc140030Agent extends Agent {
 		System.out.println("ERROR: updating start corner while not on home corner");
 	}
     }
-    
+	
     public void setMode(AgentEnvironment e){
 	if(e.hasFlag()){
 	    mode = ATTACK;
@@ -1413,8 +1395,8 @@ public class wjc140030Agent extends Agent {
 		agent2.mode = DEFEND;
 		return;
 	    }
-	    int myDist = this.pathLength(this.getPath(currentPos, enemyBase, false));
-	    int otherDist = teammate.pathLength( teammate.getPath(teammate.currentPos,enemyBase, false));
+	    int myDist = this.pathLength(this.getPath(currentPos, enemyBase, false, false));
+	    int otherDist = teammate.pathLength( teammate.getPath(teammate.currentPos,enemyBase, false, false));
 	    if(myDist==otherDist){
 		if(debug) System.out.println(myDist+"=="+otherDist);
 		agent1.mode = ATTACK;
@@ -1426,10 +1408,10 @@ public class wjc140030Agent extends Agent {
 	}
 	
     }
-    
+	
     public int attackModeMove(boolean hasFlag){
 	if(hasFlag){
-	    return moveTowards(homeBase,true);    
+	    return moveTowards(homeBase,true);	
 	}else{
 	    return moveTowards(enemyBase,false);			
 	    // if(isChoke(currentPos) && (Math.random() > 0.925)){
@@ -1439,13 +1421,11 @@ public class wjc140030Agent extends Agent {
 	    // }
 	}
     }
-
-    
     
     public int defenseModeMove(){
 	if(doneExploring){
 	    if(debug) System.out.println("Done Exploring.");
-	    weightChokepoints();
+	    // 	    currentMap.weightChokepoints();
 	    if(debug) currentMap.printChokeMap();
 	    // find a chokepoint to guard
 	    Pos bestChoke = currentMap.findBestChoke();	    
@@ -1462,13 +1442,12 @@ public class wjc140030Agent extends Agent {
     public int getMove( AgentEnvironment env ) {
 	if (debug) System.out.println("***** Processing Agent "+ID+" *****");
 
-	updateMaps(env);
+	currentMap.update(env);
 	
 	/** Check if the agent has been tagged or exploded */
 	if((env.isObstacleNorthImmediate() || env.isObstacleSouthImmediate()) && onHomeCol(env)){
 	    //prevPos = currentPos.clone();
 	    //currentMap.setAgent(prevPos, 0);
-
 	    if(currentMap instanceof DynamicGrid){
 		currentPos = new Pos(0, 0);
 	    }else{
@@ -1511,7 +1490,7 @@ public class wjc140030Agent extends Agent {
 	case FOLLOW:
 	    break;
 	default:
-	}    
+	}	
 
 	if(debug) {
 	    currentMap.printObstacleMap();
@@ -1519,10 +1498,10 @@ public class wjc140030Agent extends Agent {
 	    // currentMap.printChokeWeights();
 	}
 
-	
+	    
 	return recordMove(finalMove);
     }
-
+    
     public void drawIcon(Graphics g, int width, int height){
 	// draw a circle lol
 	int xCenter = width/2;
