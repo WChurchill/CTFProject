@@ -42,15 +42,15 @@ public class wjc140030Agent extends Agent {
     /** 
      * A map shared by both agents  
      */
+    private Pos currentPos = new Pos(0, 0);
     private static CompleteGrid completeMap;
     private DynamicGrid dynamicMap = new DynamicGrid();
     private Grid currentMap = dynamicMap;
     private static final int BLOCKED = 100;
     private static final int EMPTY = 0;
     private static final int UNEXPLORED = 102;
-    private int[][] localDebugGrid = null;
-    private int[][]  completeDebugGrid = null;
-
+    private boolean[][] debugPathGrid = null;
+    
     /** 
      * A hashmap containing the location of all bombs planted
      */
@@ -66,7 +66,6 @@ public class wjc140030Agent extends Agent {
     private static double[][] agentMap;
     private boolean touchedHomeBase = false;
     private boolean touchedEnemyBase = false;
-    private Pos currentPos = new Pos(0, 0);
     // the coordinates of the agent last turn
     private Pos prevPos = null;
 
@@ -125,11 +124,8 @@ public class wjc140030Agent extends Agent {
     /** 
      * Whethter or not the initial sequence has been completed 
      */
-    private static boolean northInitComplete = false;
-    private static boolean southInitComplete = false;
-    private static int northDist = 0; // cells between home base to the top of the map
-    private static int southDist = 0; // cells between home base to the bottom of the map
-    
+    private int verticalTravelDist = 0; // cells between home base to the top of the map
+        
     /* The initial sequence involves moving toward home base in order to 
      * determine the width of the map. Once the map width is known, 
      * the matrices are instantiated.
@@ -162,6 +158,7 @@ public class wjc140030Agent extends Agent {
 	public abstract void setWeight(Pos p, double weight, boolean relative); // 
 	
 	public abstract Pos toAbsPos(Pos p);
+	public abstract Pos absToGlobal(Pos p);
 	
 	public abstract int testObstacle(Pos p, boolean relative);
 	public abstract boolean testBomb(Pos p, boolean relative);
@@ -226,6 +223,10 @@ public class wjc140030Agent extends Agent {
 
 	public Pos toAbsPos(Pos p){
 	    return new Pos(currentPos.x+p.x, currentPos.y+p.y);
+	}
+	
+	public Pos absToGlobal(Pos p){
+	    return p;
 	}
 	
 	public void insertAgent(Pos p, double status, boolean relative){
@@ -328,7 +329,7 @@ public class wjc140030Agent extends Agent {
 	    boolean down = e.isObstacleSouthImmediate();
 	    if(debug && currentPos==null) System.out.println("ERROR: currentPos==null");
 	    // I'm not an obstacle lol
-	    currentMap.insertObstacle(currentPos, down  ? BLOCKED : EMPTY, false);
+	    currentMap.insertObstacle(currentPos, EMPTY, false);
 	    
 	    int x = currentPos.x;
 	    int y = currentPos.y;
@@ -537,12 +538,13 @@ public class wjc140030Agent extends Agent {
 	// corner
 	// The coordinates (0,0) indicate the starting position of the
 	// agent regardless of orientation. 
-	int width = 5;
+	
 	private ArrayList<ArrayList<Integer>> obstacleMap;
 	private ArrayList<ArrayList<Double>> agentMap;
 	private ArrayList<ArrayList<Double>> pathPrediction;
 	
 	public DynamicGrid(){
+	    super.width = 5;
 	    obstacleMap = new ArrayList<>(width);
 	    agentMap = new ArrayList<>(width);
 	    pathPrediction = new ArrayList<>(width);
@@ -560,19 +562,20 @@ public class wjc140030Agent extends Agent {
 		agentMap.add(agentCol);
 		pathPrediction.add(predictCol);
 	    }
-	    
+	    setBases();
 	}
 
-	public Pos getAbsPos(Pos p){
+	public Pos absToGlobal(Pos p){
+	    int w = completeMap!=null ? completeMap.width()-1 : width-1;
 	    switch(startCorner){
 	    case NORTH_WEST_START:
-		return new Pos(p.x,-p.y);
+		return new Pos(w-p.x,w-p.y);
 	    case NORTH_EAST_START:
-		return new Pos(-p.x,-p.y);
+		return new Pos(w+p.x,w-p.y);
 	    case SOUTH_WEST_START:
 		return new Pos(p.x, p.y);
 	    case SOUTH_EAST_START:
-		return new Pos(-p.x, p.y);
+		return new Pos(w-p.x, p.y);
 	    default:
 		System.out.println("ERROR: invalid starting corner");
 		return null;
@@ -659,6 +662,7 @@ public class wjc140030Agent extends Agent {
 		obstacleMap.get(i).add(UNEXPLORED);
 	    }
 	    obstacleMap.add(newColumn);
+	    setBases();
 	}
 
 	public Pos toAbsPos(Pos p){
@@ -784,7 +788,7 @@ public class wjc140030Agent extends Agent {
 		currentMap.update(e);
 		return;
 	    }
-
+	    
 	    // update obstacles
 
 	    boolean right = e.isObstacleEastImmediate();
@@ -801,8 +805,11 @@ public class wjc140030Agent extends Agent {
 	    currentMap.insertObstacle(new Pos(-1, 0),  left  ? BLOCKED : EMPTY, true);
 	    currentMap.insertObstacle(new Pos(0,  -1), down  ? BLOCKED : EMPTY, true);
 	    // I'm not an obstacle lol
-	    currentMap.insertObstacle(currentPos, down  ? BLOCKED : EMPTY, false);
+	    currentMap.insertObstacle(currentPos, EMPTY, false);
 
+	    // set the bases after possibly increasing the map width
+	    setBases();
+	    
 	    // Update immediate agent positions
 	    boolean agentRightImm = e.isAgentEast(e.ENEMY_TEAM, true);
 	    boolean agentUpImm = e.isAgentNorth(e.ENEMY_TEAM, true);
@@ -878,23 +885,28 @@ public class wjc140030Agent extends Agent {
 	    
         }
 
+	public void absToRelative(Pos p){
+	    
+	}
+
 	public void setBases(){
+	    int w = width-1;
 	    switch(startCorner){
 	    case NORTH_WEST_START:
-		enemyBase = new Pos(width-currentPos.x, currentPos.y-width);
-		homeBase = new Pos(-currentPos.x, currentPos.y-width);
+		enemyBase = new Pos(w-currentPos.x, -w-currentPos.y);
+		homeBase = new Pos(-currentPos.x, -w-currentPos.y);
 		break;
 	    case SOUTH_WEST_START:
-		enemyBase = new Pos(width-currentPos.x, width);
-		homeBase = new Pos(-currentPos.x, width);
+		enemyBase = new Pos(w-currentPos.x, w-currentPos.y);
+		homeBase = new Pos(-currentPos.x, w-currentPos.y);
 		break;
 	    case NORTH_EAST_START:
-		enemyBase = new Pos(width-currentPos.x, currentPos.y-width);
-		homeBase = new Pos(-currentPos.x, currentPos.y-width);
+		enemyBase = new Pos(-w-currentPos.x, -w-currentPos.y);
+		homeBase = new Pos(-currentPos.x, -w-currentPos.y);
 		break;
 	    case SOUTH_EAST_START:
-		enemyBase = new Pos(width-currentPos.x, width);
-		homeBase = new Pos(-currentPos.x, width);
+		enemyBase = new Pos(-w-currentPos.x, w-currentPos.y);
+		homeBase = new Pos(-currentPos.x, w-currentPos.y);
 		break;
 	    }
 	}
@@ -907,25 +919,8 @@ public class wjc140030Agent extends Agent {
 	public void printWeights() {
             
 	}
-
-	public void printChokeMap(){
-	    
-	}
 	
 	public void printObstacleMap(){
-	    System.out.println("Map width: "+width);
-	    System.out.print("Start Corner: ");
-	    if(startCorner==NORTH_WEST_START)
-		System.out.println("north west");
-	    else if(startCorner==SOUTH_WEST_START)
-		System.out.println("south west");
-	    else if(startCorner==NORTH_EAST_START)
-		System.out.println("north east");
-	    else
-		System.out.println("south east");
-	    
-	    
-	    
 	    System.out.print("[]");
 	    for (int col = 0; col<=width; col++) {
 		System.out.print("[]");
@@ -937,7 +932,9 @@ public class wjc140030Agent extends Agent {
 		
 		for(int column = 0; column<width; column++){
 		    int status = testObstacle(globalToAbs(new Pos(column, row)), false);
-		    if(status==BLOCKED){
+		    if(debugPathGrid!=null && debugPathGrid[column][row]){
+			System.out.println("--");
+		    }else if(status==BLOCKED){
 			System.out.print("[]");
 		    }else if(status==UNEXPLORED){
 			System.out.print("??");
@@ -1139,7 +1136,7 @@ public class wjc140030Agent extends Agent {
     // TODO: Incorporate probability matrices
     private PathSearchNode getPath(Pos start, Pos goal, boolean hasFlag, boolean random){
 	// clear the debugging grid
-	// if(debug) debugPathGrid = new boolean[obstacleMap.length][obstacleMap.length];
+	if(debug) debugPathGrid = new boolean[currentMap.width()][currentMap.width()];
 	if(goal==null || goal.equals(start))
 	    return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null);
 	//A* search to goal
@@ -1157,7 +1154,15 @@ public class wjc140030Agent extends Agent {
 	    }
 	    searchHistory.put(currentNode.getPos(), currentNode); // add it to the search history
 		
-	    //if(debug) debugPathGrid[currentNode.getPos().x][currentNode.getPos().y]=true;
+	    if(debug){
+		Pos p = currentNode.getPos();
+		System.out.println("node: "+p);
+		Pos absPos = currentMap.toAbsPos(new Pos(currentPos.x+p.x, currentPos.y+p.y));
+		System.out.println("abs: "+p);
+		Pos globalPos = currentMap.absToGlobal(absPos);
+		System.out.println("global: "+globalPos);
+		debugPathGrid[globalPos.x][globalPos.y]=true;
+	    }
 	    // goal test 
 	    if(currentNode.getPos().equals(goal)){
 		//unravel the stack
@@ -1193,18 +1198,21 @@ public class wjc140030Agent extends Agent {
 			// Don't add to heap if there's a wall or agent in the way
 			!currentMap.testTeammate(temp, true) /*&& testEnemy(temp)!=-1.0 */ &&
 			!currentMap.isBlocked(temp, true)) {
+			System.out.println(temp);
 			
 			heap.add(newNodes[i]);
 		    }
 		}
 	    }
 	}
-	if(debug) System.out.println("\nERROR: Search Failed");
+	if(debug) System.out.println("ERROR: Search Failed");
 	return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null);
 
     }
     
     private int moveTowards(Pos goal, boolean hasFlag){
+	System.out.println("moving towards: "+goal);
+	
 	PathSearchNode currentNode = getPath(currentPos, goal, hasFlag, false);
 	intention = currentNode;
 	while(currentNode.getParent()!=null &&
@@ -1214,9 +1222,9 @@ public class wjc140030Agent extends Agent {
 	    // if(debug) debugPathGrid[currentNode.getPos().x][currentNode.getPos().y] = true;
 	}
 	if(debug) {
-	    System.out.println("\nBest Move: "+moveToString(currentNode.getMove()));
+	    System.out.println("Best Move: "+moveToString(currentNode.getMove()));
 	}
-	
+		
 	return currentNode.getMove();
     }
 
