@@ -31,7 +31,7 @@ public class TestAgent extends Agent {
     /** 
      * enables debug prints 
      */
-    private static final boolean debug = false; 
+    private static final boolean debug = true; 
     
     /** 
      * a more convenient name for planting a mine 
@@ -46,28 +46,6 @@ public class TestAgent extends Agent {
     private static final int EMPTY = 101;
     private static final int UNEXPLORED = 102;
     private boolean[][] debugPathGrid = null;
-
-    /** 
-     * A map of key strategic chokepoints 
-     */
-    private static int[][] chokepointMap;
-    private static int[][] chokeWeightMap;
-    private final int TOPLEFT = -1;
-    private final int TOPRIGHT = -2;
-    private final int VERTICAL = -3;
-    private final int HORIZONTAL = -4;
-    private final int CROSS = -5;
-    private final int DIAG = -6;
-    private static final int CHOKEPOINT_1 = 103; // indicates a chokepoint 1 square wide
-    private static final int CHOKEPOINT_2 = 104; // indicates a chokepoint 2 squares wide
-    private static final int CHOKEPOINT_3 = 105; // indicates a chokepoint of width 3
-    private static final int NOT_CHOKEPOINT = 106; // indicates no strategic value for this square
-    
-    /** 
-     * A map of corridors, generated from the chokepoint map
-     */
-    private static int[][] corridorMap;
-    private enum direction {horiz, vert, topLeft, topRight};
     
     /** 
      * A hashmap containing the location of all bombs planted
@@ -164,27 +142,29 @@ public class TestAgent extends Agent {
 	private int move;
 	private int pathCost;
 	private int manhattan;
-	private double enemyProb;
-	private boolean avoidEnemies;
+	private double enemyProb = 0.0;
 	private Pos pos; // The position that results from making the move
 	private PathSearchNode parentNode;
 	
 	
-	public PathSearchNode(int move, int pathCost,int manhattan,
-			      Pos pos, PathSearchNode parent, double enemyProb, boolean avoidEnemies){
+	public PathSearchNode(int move, int pathCost,int manhattan, Pos pos, PathSearchNode parent,
+			      double enemyProb, boolean avoidEnemies, boolean seekEnemies){
 	    this.move = move;
 	    this.pathCost = pathCost;
 	    this.manhattan = manhattan;
 	    this.pos = pos;
 	    this.parentNode = parent;
+	    // if(avoidEnemies) this.enemyProb = enemyProb;
+	    // if(seekEnemies) this.enemyProb = -enemyProb;
 	}
 
 	public int getPathCost(){
 	    return pathCost;
 	}
 
-	public int fCost(){
-	    return pathCost+manhattan;
+	public double fCost(){
+	    double f = pathCost+manhattan;
+	    return f+f*enemyProb;
 	}
 
 	public int getManhattan(){
@@ -192,7 +172,7 @@ public class TestAgent extends Agent {
 	}
 	
 	public int getMove(){
-	    return move;
+	   return move;
 	}
 
 	public Pos getPos(){
@@ -204,7 +184,7 @@ public class TestAgent extends Agent {
 	}
 
 	public int compareTo(PathSearchNode node){
-	    int value  = fCost()-node.fCost();
+	    double value  = fCost()-node.fCost();
 	    if(value==0){
 		if(move==AgentAction.MOVE_WEST || move==AgentAction.MOVE_EAST){
 		    return -1;
@@ -213,8 +193,10 @@ public class TestAgent extends Agent {
 		}else{
 		    return 0;
 		}
+	    }else if(value>0){
+		return 1;
 	    }else{
-		return value;
+		return -1;
 	    }
 	}
     }
@@ -255,82 +237,7 @@ public class TestAgent extends Agent {
 	TestAgent otherAgent = (TestAgent)other;
 	return otherAgent.ID==ID;
     }
-        
-    /** Checks whether or not the given Pos is a chokepoint 1 square wide
-     *  Returns false if the square is an obstacle or any immediately adjacent
-     *  (north, south, east, west) square is unknown.
-     */
-    private boolean isW1Chokepoint(Pos testPos){
-	// check if the test position is a wall	
-	if(isBlocked(testPos)){
-	    return false;
-	}
-	int testX = testPos.x;
-	int testY = testPos.y;
-	// indicates the orientation of the "hallway"
-	boolean verticalChoke = false; // open spaces north and south
-	boolean horizontalChoke = false; // open spaces east and west
-	boolean topRightChoke = false; // top left and bottom right blocked
-	boolean topLeftChoke = false; // top right and bottom left blocked
-	/*
-	 * Check for vertical corridor, i.e. walls on the east and west 
-	 * but not directly north or directly south
-	 */
-	// no obstacles directly north or directly south
-	if( !(isBlocked(new Pos(testX, testY+1)) || isBlocked(new Pos(testX, testY+1)) ) ){
-	    // test if the west cell is blocked
-	    if(isBlocked(new Pos(testX-1, testY)) && 
-	       // test if the northEast, east, or southeast cells are blocked
-	       (isBlocked(new Pos(testX+1, testY+1))  || 
-		isBlocked(new Pos(testX+1, testY)) ||
-		isBlocked(new Pos(testX+1, testY-1)))){
-		verticalChoke = true;
-	    }else if(isBlocked(new Pos(testX+1, testY)) && // test if the east cell is blocked
-		     // test if the northWest, west, or southWest cells are blocked
-		     (isBlocked(new Pos(testX-1, testY+1))|| 
-		      isBlocked(new Pos(testX-1, testY)) ||
-		      isBlocked(new Pos(testX-1, testY-1)))){
-		verticalChoke = true;
-	    }
-	}
-	/*
-	 * Check for horizontal corridor, i.e. walls on the north and south 
-	 * but not directly east or directly west
-	 */
-	if( !(isBlocked(new Pos(testX-1, testY)) || isBlocked(new Pos(testX+1, testY)) ) ){
-	    // test if the north cell is blocked
-	    if(isBlocked(new Pos(testX, testY+1)) && 
-	       // test if the southEast, south, or southWest cells are blocked
-	       (isBlocked(new Pos(testX-1, testY-11)) || 
-		isBlocked(new Pos(testX,   testY-1)) ||
-		isBlocked(new Pos(testX+1, testY-1)))){
-		horizontalChoke = true;
-	    }else if(isBlocked(new Pos(testX, testY-1)) && // test if the south cell is blocked
-		     // test if the northEast, north, or northWest cells are blocked
-		     (isBlocked(new Pos(testX-1, testY+1)) || 
-		      isBlocked(new Pos(testX,   testY+1)) ||
-		      isBlocked(new Pos(testX+1, testY+1)))){
-		horizontalChoke = true;
-	    }
-	}
-	/*
-	 * Check for topRightChoke
-	 * topLeft cell blocked and bottomRight cell blocked
-	 */
-	if( isBlocked(new Pos(testX-1,testY+1)) && isBlocked(new Pos(testX+1,testY-1))  ){
-	    topRightChoke = true;
-	}
-	/*
-	 * Check for topLeftChoke
-	 * topRight cell blocked and bottomRight cell blocked
-	 */
-	if( isBlocked(new Pos(testX+1,testY+1)) && isBlocked(new Pos(testX-1,testY-1))  ){
-	    topLeftChoke = true;
-	}
-
-	return topRightChoke || topLeftChoke || verticalChoke || horizontalChoke;
-    }
-    
+            
     private void setInitPos(boolean northAgent){
 	if (startSide==LEFT_START) {
 	    currentPos = new Pos(0, southTravelDist + (northAgent ? 2 : 0));
@@ -360,8 +267,11 @@ public class TestAgent extends Agent {
 
     private int recordMove(int m){
 	moveHistory.add(m);
+	if(!initComplete){
+	    return m;
+	}
 	prevPos = currentPos.clone();
-	if(initComplete) agentMap[prevPos.x][prevPos.y] = 0;
+	agentMap[prevPos.x][prevPos.y] = 0;
 	
 	switch(m){
 	case AgentAction.MOVE_EAST:
@@ -401,23 +311,19 @@ public class TestAgent extends Agent {
     // TODO: fix pathfinding with possession of flag
     // TODO: Incorporate probability matrices
     private PathSearchNode getPath(Pos start, Pos goal, boolean hasFlag,
-				   boolean avoidEnemies, boolean seekEnemies, boolean){
+				   boolean avoidEnemies, boolean seekEnemies){
 	// clear the debugging grid
 	if(debug) debugPathGrid = new boolean[obstacleMap.length][obstacleMap.length];
 	if(goal==null || goal.equals(start))
-	    return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null);
+	    return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null, 0.0, false, false);
 	//A* search to goal
 	PathSearchNode currentNode = new PathSearchNode(AgentAction.DO_NOTHING, 0,
-							manhattanDist(start, goal), start, null);
+							manhattanDist(start, goal), start, null, 0, false, false);
 	PriorityQueue<PathSearchNode> heap = new PriorityQueue<>();
 	HashMap<Pos,PathSearchNode> searchHistory = new HashMap<>();
 	heap.add(currentNode);
 			
-	int loopCount = 0;
-	int loopLimit = obstacleMap.length*obstacleMap.length;
-	while(!heap.isEmpty() && loopCount < 999){
-	    loopCount++;
-	    
+	while(!heap.isEmpty()){
 	    // select a node to expand
 	    currentNode = heap.poll();
 	    if(searchHistory.containsKey(currentNode.getPos())){
@@ -425,7 +331,7 @@ public class TestAgent extends Agent {
 	    }
 	    searchHistory.put(currentNode.getPos(), currentNode); // add it to the search history
 	    
-	    //if(debug) debugPathGrid[currentNode.getPos().x][currentNode.getPos().y]=true;
+	    if(debug) debugPathGrid[currentNode.getPos().x][currentNode.getPos().y]=true;
 	    // goal test 
 	    if(currentNode.getPos().equals(goal)){
 		//unravel the stack
@@ -454,99 +360,22 @@ public class TestAgent extends Agent {
 		    if( ( hasFlag || !temp.equals(homeBase) ) &&
 			// Don't add to heap if there's a wall or agent in the way
 			!testTeammate(temp) /*&& testEnemy(temp)!=-1.0 */ && !isBlocked(temp)) {
-			PathSearchNode newNode = new PathSearchNode(directions[i], currentNode.pathCost+1,
-								    manhattanDist(temp,goal), temp, currentNode);
+			PathSearchNode newNode =
+			    new PathSearchNode(directions[i], currentNode.pathCost+1,
+					       manhattanDist(temp,goal), temp, currentNode,
+					       testPath(temp), avoidEnemies, seekEnemies);
 			heap.add(newNode);
 		    }
 		}
 	    }
 	}
 	if(debug) System.out.println("\nERROR: Search Failed");
-	return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null);
+	return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null, 0, false, false);
     }
-
-    private PathSearchNode getRestrictedPath(Pos start, Pos goal, boolean hasFlag){
-	// clear the debugging grid
-	if(debug) debugPathGrid = new boolean[obstacleMap.length][obstacleMap.length];
-	if(goal==null || goal.equals(start))
-	    return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null);
-	PathSearchNode currentNode = new PathSearchNode(AgentAction.DO_NOTHING, 0,
-							manhattanDist(start, goal), start, null);
-	PriorityQueue<PathSearchNode> heap = new PriorityQueue<>();
-	HashMap<Pos,PathSearchNode> searchHistory = new HashMap<>();
-	heap.add(currentNode);
-			
-	int loopCount = 0;
-	int loopLimit = obstacleMap.length*obstacleMap.length;
-	while(!heap.isEmpty() && loopCount < 999){
-	    loopCount++;
-	    
-	    // select a node to expand
-	    currentNode = heap.poll();
-	    if(searchHistory.containsKey(currentNode.getPos())){
-		continue;
-	    }
-	    searchHistory.put(currentNode.getPos(), currentNode); // add it to the search history
-	    
-	    //if(debug) debugPathGrid[currentNode.getPos().x][currentNode.getPos().y]=true;
-	    // goal test 
-	    if(currentNode.getPos().equals(goal)){
-		//unravel the stack
-		return currentNode;
-		
-	    }else{
-		// expand successors
-		int currentX = currentNode.getPos().x;
-		int currentY = currentNode.getPos().y;
-		Pos[] adjacentCells = {
-		    new Pos(currentX+1,currentY ), // east
-		    new Pos(currentX-1,currentY ), // west
-		    new Pos(currentX,currentY+1 ), // north
-		    new Pos(currentX,currentY-1 ) // south
-		};
-		int[] directions = {
-		    AgentAction.MOVE_EAST,
-		    AgentAction.MOVE_WEST,
-		    AgentAction.MOVE_NORTH,
-		    AgentAction.MOVE_SOUTH
-		};
-		for(int i = 0; i<4; i++){
-		    Pos temp = adjacentCells[i];
-		    // HomeBase is an obstacle unless the agent has the enemy flag.
-		    // Don't add to heap if temp is homeBase unless the goal is homeBase.
-		    if( ( hasFlag || !temp.equals(homeBase) ) &&
-			// Don't add to heap if there's a wall or agent in the way
-			!testTeammate(temp) /*&& testEnemy(temp)!=-1.0 */ && !isBlocked(temp)) {
-			PathSearchNode newNode = new PathSearchNode(directions[i], currentNode.pathCost+1,
-								    manhattanDist(temp,goal), temp, currentNode);
-			heap.add(newNode);
-		    }
-		}
-	    }
-	}
-	if(debug) System.out.println("\nERROR: Search Failed");
-	return new PathSearchNode(AgentAction.DO_NOTHING, 0, 0, start, null);
-    }
-    
-    private int restrictedMoveTowards(Pos goal, boolean hasFlag){
-	PathSearchNode currentNode = getRestrictedPath(currentPos, goal, hasFlag);
-	intention = currentNode;
-	while(currentNode.getParent()!=null &&
-	      currentNode.getParent().getParent()!=null){
-	    // save the path for printing & debugging
-	    currentNode = currentNode.getParent();
-	    if(debug) debugPathGrid[currentNode.getPos().x][currentNode.getPos().y] = true;
-	}
-	if(debug) {
-	    System.out.println("\nBest Move: "+moveToString(currentNode.getMove()));
-	}
-	
-	return currentNode.getMove();
-    }
-
-    
-    private int moveTowards(Pos goal, boolean hasFlag){
-	PathSearchNode currentNode = getPath(currentPos, goal, hasFlag);
+        
+    private int moveTowards(Pos goal, boolean hasFlag,
+			    boolean avoidEnemies, boolean seekEnemies){
+	PathSearchNode currentNode = getPath(currentPos, goal, hasFlag, avoidEnemies, seekEnemies);
 	intention = currentNode;
 	while(currentNode.getParent()!=null &&
 	      currentNode.getParent().getParent()!=null){
@@ -615,7 +444,7 @@ public class TestAgent extends Agent {
 	    return 0.0;
 	}
     }
-    
+
     private boolean isBlocked(Pos p){
 	try{
 	    return obstacleMap[p.x][p.y]==BLOCKED;
@@ -624,14 +453,29 @@ public class TestAgent extends Agent {
 	}
     }
 
+
+    private int testObstacle(Pos p){
+	try{
+	    return obstacleMap[p.x][p.y];
+	}catch(IndexOutOfBoundsException e){
+	    return BLOCKED;
+	}
+    }
+
+    
     private void moveEnemies(){
+	if(debug) System.out.println("Moving enemies...");
+	double oldAgentMap[][] = agentMap.clone();
+	agentMap = new double[agentMap.length][agentMap.length];
 	for(int x = 0; x < agentMap.length; x++){
 	    for(int y = 0; y < agentMap[x].length; y++){
-		if(agentMap[x][y]!=0){
+		if(oldAgentMap[x][y]>0){
+		    Pos p0 = new Pos(x,y);
 		    Pos p1 = new Pos(x+1, y);
-		    Pos p2 =new Pos(x-1, y);
+		    Pos p2 = new Pos(x-1, y);
 		    Pos p3 = new Pos(x, y+1);
 		    Pos p4 = new Pos(x, y-1);
+		    insertAgent(p0, isBlocked(p1) ? 0.0 : 0.5);
 		    insertAgent(p1, isBlocked(p1) ? 0.0 : 0.5);
 		    insertAgent(p2, isBlocked(p2) ? 0.0 : 0.5);
 		    insertAgent(p3, isBlocked(p3) ? 0.0 : 0.5);
@@ -640,8 +484,33 @@ public class TestAgent extends Agent {
 	    }
 	}
     }
+
+    /** 
+     * Precondition: Enemy positions have been marked by a 1
+     * possible positions have been marked with 0.5
+     */
+    private void normalizeProbs(){
+	if(debug) System.out.println("Normalizing probs...");
+	int count = 0;
+	for(int x = 0; x < agentMap.length; x++){
+	    for(int y = 0; y < agentMap[x].length; y++){
+		if(agentMap[x][y]>0 && agentMap[x][y] < 1){
+		    count++;
+		}
+	    }
+	}
+	double val = 1/(double)count;
+	for(int x = 0; x < agentMap.length; x++){
+	    for(int y = 0; y < agentMap[x].length; y++){
+		if(agentMap[x][y]>0 && agentMap[x][y]<1){
+		    agentMap[x][y] = val;
+		}
+	    }
+	}
+    }
     
     private void updateMaps(AgentEnvironment e){
+	if(debug) System.out.println("Updating Maps...");
 	boolean right = e.isObstacleEastImmediate();
 	boolean up = e.isObstacleNorthImmediate();
 	boolean left = e.isObstacleWestImmediate();
@@ -688,12 +557,13 @@ public class TestAgent extends Agent {
 		insertAgent(new Pos(x,y-1), 1);
 	}else{
 	    moveEnemies();
+	    // if(debug) printAgentMap();
 	}
 	
-	boolean rightFar = e.isAgentEast(e.ENEMY_TEAM, true);
-	boolean upFar= e.isAgentNorth(e.ENEMY_TEAM, true);
-	boolean leftFar = e.isAgentWest(e.ENEMY_TEAM, true);
-	boolean downFar = e.isAgentSouth(e.ENEMY_TEAM, true);	    
+	boolean rightFar = e.isAgentEast(e.ENEMY_TEAM, false);
+	boolean upFar= e.isAgentNorth(e.ENEMY_TEAM, false);
+	boolean leftFar = e.isAgentWest(e.ENEMY_TEAM, false);
+	boolean downFar = e.isAgentSouth(e.ENEMY_TEAM, false);	    
 	if(sum==1){
 	    if(agentRight){
 		insertAgent(new Pos(x+1,y), 1);
@@ -720,10 +590,22 @@ public class TestAgent extends Agent {
 	if(sum==0){
 	    if(!rightFar){
 		// mark all right positions with a 0
-		removeEastAgents();
+		if(!leftFar){
+		    for(int row = 0; row<agentMap.length; row++){
+			agentMap[currentPos.x][row] = 0;
+		    }
+		}else{
+		    removeEastAgents();    
+		}
 	    }
 	    if(!upFar){
-		removeNorthAgents();
+		if(!leftFar){
+		    for(int col = 0; col<agentMap.length; col++){
+			agentMap[col][currentPos.y] = 0;
+		    }
+		}else{
+		    removeNorthAgents();    
+		}
 	    }
 	    if(!leftFar){
 		removeWestAgents();
@@ -732,7 +614,7 @@ public class TestAgent extends Agent {
 		removeSouthAgents();
 	    }
 	}
-	
+	normalizeProbs();
 	
 	
     }
@@ -830,103 +712,55 @@ public class TestAgent extends Agent {
     private void printAgentMap() {
 	int width = obstacleMap.length;
 	// print the top of the map
-	System.out.print("[ ]");
+	System.out.print("[] ");
 	for (int col = 0; col<=width; col++) {
-	    System.out.print("[ ]");
+	    System.out.print(" []  ");
 	}
 	System.out.println();
 	// print each row of the map
 	for (int row = width-1; row>=0; row--){
-	    System.out.print("[ ]");
+	    System.out.print("[] ");
 	    for(int column = 0; column<width; column++){
 		double prob = agentMap[column][row];
 		if(obstacleMap[column][row]==BLOCKED){
-		    System.out.print("[ ]");
+		    System.out.print(" []  ");
 		} else if(prob==1.0){
-		    System.out.print("1.0");
+		    System.out.print(" EE  ");
 		} else if(prob==0.0){
-		    System.out.print("   ");
+		    System.out.print("     ");
+		}else if(prob==-1.0){
+		    System.out.print(" AA  ");
 		} else{
-		    System.out.printf("%.2f", prob);
+		    System.out.printf("%.2f ", prob);
 		}		    
 		
 	    }
-	    System.out.println("[ ]");
+	    System.out.println("[]");
 	}
 	//print the bottom edge of the map
-	System.out.print("[ ]");
+	System.out.print("[] ");
 	for (int col = 0; col<=width; col++) {
-	    System.out.print("[ ]");
+	    System.out.print(" []  ");
 	}
 	System.out.println();
     }
 
-    private void printChokeMap(){
-	int width = chokepointMap.length;
+    private void printPathMap(){
+	int width = pathMap.length;
 	// print the top of the map
 	System.out.print(" ");
 	for (int col = 0; col<width; col++) {
-	    System.out.print("---");
+	    System.out.print("----");
 	}
 	System.out.println();
 	// print each row of the map
 	for (int row = width-1; row>=0; row--){
-	    System.out.print("|");
-	    for(int column = 0; column<width; column++){
-		switch(chokepointMap[column][row]) {
-		case TOPLEFT:
-		    System.out.print(" \\ ");
-		    break;
-		case TOPRIGHT:
-		    System.out.print(" / ");
-		    break;
-		case VERTICAL:
-		    System.out.print(" | ");
-		    break;
-		case HORIZONTAL:
-		    System.out.print(" - ");
-		    break;
-		case CROSS:
-		    System.out.print(" + ");
-		    break;
-		case DIAG:
-		    System.out.print(" x ");
-		    break;
-		default:
-		    if(obstacleMap[column][row]==BLOCKED){
-			System.out.print("[ ]");
-		    }else{
-			System.out.print("   ");
-		    }
-		}
-	    }
-	    System.out.println("|");
-	}
-	//print the bottom edge of the map
-	System.out.print(" ");
-	for (int col = 0; col<width; col++) {
-	    System.out.print("---");
-	}
-	System.out.println();
-    }
-
-
-    private void printChokeWeights(){
-	int width = chokepointMap.length;
-	// print the top of the map
-	System.out.print(" ");
-	for (int col = 0; col<width; col++) {
-	    System.out.print("---");
-	}
-	System.out.println();
-	// print each row of the map
-	for (int row = width-1; row>=0; row--){
-	    System.out.print("|");
+	    System.out.print("| ");
 	    for(int column = 0; column<width; column++){
 		if(obstacleMap[column][row]==BLOCKED){
-		    System.out.print("[ ]");
+		    System.out.print("[ ] ");
 		}else{
-		    System.out.printf("% 3d",chokeWeightMap[column][row]);
+		    System.out.printf("%3.1f ", pathMap[column][row]);
 		}
 	    }
 	    System.out.println("|");
@@ -934,7 +768,7 @@ public class TestAgent extends Agent {
 	//print the bottom edge of the map
 	System.out.print(" ");
 	for (int col = 0; col<width; col++) {
-	    System.out.print("---");
+	    System.out.print("----");
 	}
 	System.out.println();
     }
@@ -965,25 +799,27 @@ public class TestAgent extends Agent {
 	    obstacleMap[mapWidth-1][i] = EMPTY;
 	}
 	agentMap = new double[mapWidth][mapWidth];
-	pathMap = new double[mapWidth][mapWidth];
 	int enemyX = startSide==LEFT_START ? mapWidth-1 : 0;
-	insertAgent(new Pos(enemyX, 0), 0.5);
-	insertAgent(new Pos(enemyX, mapWidth-1), 0.5);
+	insertAgent(new Pos(enemyX, 0), 1);
+	insertAgent(new Pos(enemyX, mapWidth-1), 1);
 	for(int i = 0; i<=moveHistory.size(); i++){
 	    moveEnemies();
 	}
-	
+	if(debug) printAgentMap();
     }
 
     private void predictPaths(Pos destination){
+	pathMap = new double[agentMap.length][agentMap.length];
 	for(int x = 0; x<agentMap.length; x++){
 	    for(int y = 0; y<agentMap[x].length; y++){
 		Pos start = new Pos(x,y);
 		if(testEnemy(start) != 0){
-		    PathSearchNode path = getPath(start, destination, true );
-		    for(PathSearchNode node : path){
+		    PathSearchNode node = getPath(start, destination, true, false, false);
+		    while(node.getParent()!=null){
 			Pos p = node.getPos();
-			pathMap[p.x][p.y] += testEnemy(start)/node.getPathCost();
+			// protect from div by 0 by adding 1 to path cost
+			pathMap[p.x][p.y] += testEnemy(start)/(1 + node.getPathCost());
+			node = node.getParent();
 		    }
 		}			   
 	    }
@@ -991,73 +827,35 @@ public class TestAgent extends Agent {
     }
 
     private Pos bestChoke(){
+	if(debug) System.out.println("Calculating chokepoint...");
 	Pos bestPos = currentPos;
 	double max = 0;
 	for(int x = 0; x<pathMap.length; x++){
-	    for(int y = 0; x<pathMap.length; y++){
+	    for(int y = 0; y<pathMap.length; y++){
 		Pos temp = new Pos(x,y);
 		if(temp.equals(homeBase)){
 		    continue;
 		}
-		double sum = testPath(p) +
-		    testPath(new Pos(p.x+1, p.y))
-		    testPath(new Pos(p.x-1, p.y))
-		    testPath(new Pos(p.x, p.y+1))
-		    testPath(new Pos(p.x, p.y-1));
+		double sum = testPath(temp)
+		    + testPath(new Pos(temp.x+1, temp.y))
+		    + testPath(new Pos(temp.x-1, temp.y))
+		    + testPath(new Pos(temp.x, temp.y+1))
+		    + testPath(new Pos(temp.x, temp.y-1));
 		if(max < sum){
 		    max = sum;
 		    bestPos = temp;
 		}
 	    }
 	}
+	return bestPos;
     }
-    
-    /** 
-     * Calculates 6 paths between points of interest in the map and weights
-     * each chokepoint based on the number of optimal paths that use it
-     */
-    private void weightChokepoints(){
-	// clear the previous values
-	for(int x = 0; x<chokeWeightMap.length; x++){
-	    for(int y = 0; y<chokeWeightMap[x].length; y++){
-		chokeWeightMap[x][y] = 0;
-	    }
-	}
-	int width = obstacleMap.length;
-	Pos rightBase = new Pos(width-1, width/2);
-	Pos leftBase = new Pos(0, width/2);
-	// calculate the paths that go from left to right
-	PathSearchNode paths[] =
-	    {getPath(new Pos(0, width-1), rightBase, true),
-	     getPath(leftBase, rightBase, true),
-	     getPath(new Pos(0, 0), rightBase, true),
-	     getPath(leftBase, new Pos(width-1, width-1), true),
-	     getPath(leftBase, rightBase, true),
-	     getPath(leftBase, new Pos(width-1, 0), true)};
-	for(PathSearchNode destinationNode : paths){
-	    // unravel each path
-	    PathSearchNode currentNode = destinationNode;
-	    while(currentNode.getParent()!=null){
-		currentNode = currentNode.getParent();
-		// mark it in the chokepoint map
-		Pos p = currentNode.getPos();
-		if(p.equals(homeBase)) continue;
-		if(destinationNode.equals(homeBase))
-		    chokeWeightMap[p.x][p.y]+=2;
-		else
-		    chokeWeightMap[p.x][p.y]++;
-	    }
-	}
-    }
-    
+        
     public void setMode(AgentEnvironment e){
 	if(e.hasFlag()){
 	    mode = ATTACK;
 	}else if(e.hasFlag(e.OUR_TEAM)){
-	    // mode = FOLLOW
 	    mode = DEFEND;
 	}else if(e.hasFlag(e.ENEMY_TEAM)){
-	    // mode = HUNT;
 	    mode = DEFEND;
 	} else{
 	    TestAgent teammate = (this.equals(agent1)) ? agent2 : agent1;
@@ -1066,8 +864,9 @@ public class TestAgent extends Agent {
 		agent2.mode = DEFEND;
 		return;
 	    }
-	    int myDist = this.pathLength(this.getPath(currentPos, enemyBase, false));
-	    int otherDist = teammate.pathLength( teammate.getPath(teammate.currentPos,enemyBase, false));
+	    int myDist = this.pathLength(this.getPath(currentPos, enemyBase, false, false, false));
+	    int otherDist =
+		teammate.pathLength(teammate.getPath(teammate.currentPos, enemyBase, false, false, false));
 	    if(myDist==otherDist){
 		if(debug) System.out.println(myDist+"=="+otherDist);
 		agent1.mode = ATTACK;
@@ -1081,10 +880,11 @@ public class TestAgent extends Agent {
     }
     
     public int attackModeMove(boolean hasFlag){
+	predictPaths(currentPos);
 	if(hasFlag){
-	    return moveTowards(homeBase,true);    
+	    return moveTowards(homeBase,true, true, false);    
 	}else{
-	    return moveTowards(enemyBase,false);			
+	    return moveTowards(enemyBase,false, true, false);			
 	    // if(isW1Chokepoint(currentPos) && (Math.random() > 0.925)){
 	    // 	return PLANT_MINE;
 	    // }else{
@@ -1097,56 +897,14 @@ public class TestAgent extends Agent {
      * Returns the best chokepoint to guard.
      * PRECONDITION: the chokepoints have been weigthed
      */
-    private Pos findBestChoke(){
-	int minDist = chokeWeightMap.length; //breaks ties between chokepoints with equal weights
-	Pos bestChoke = new Pos(0,0);
-
-	for (int y = 0; y<chokeWeightMap.length; y++) {
-	    for(int x = 0; x<chokeWeightMap[y].length; x++){
-		if(chokeWeightMap[x][y] > chokeWeightMap[bestChoke.x][bestChoke.y]){
-		    Pos p = new Pos(x,y);
-		    if(!p.equals(homeBase))
-			bestChoke = p;
-		}else if(chokeWeightMap[x][y]==chokeWeightMap[bestChoke.x][bestChoke.y]){
-		    // break ties by choosing the one closer to home base
-		    int d1 = pathLength(getPath(bestChoke,homeBase,true));
-		    Pos p = new Pos(x,y);
-		    if(p.equals(homeBase))
-			continue;
-		    int d2 = pathLength(getPath(p,homeBase,true));
-		    bestChoke = (d2<d1) ? new Pos(x,y) : bestChoke;
-		}
-	    }
-	}
-	return bestChoke;
-
-    }
-
     
-    public int defenseModeMove(){
-	int goalX = obstacleMap.length/2;
-	int goalY = 3*obstacleMap.length/4;
-	Pos checkPoint1 = new Pos(goalX, goalY);
-	if(doneExploring){
-	    if(debug) System.out.println("Done Exploring.");
-	    weightChokepoints();
-	    if(debug )printChokeMap();
-	    // find a chokepoint to guard
-	    Pos bestChoke = findBestChoke();	    
-	    // move towards that chokepoint
-	    return restrictedMoveTowards(bestChoke, false);// if we're in defense mode then we don't have the flag
-	}else{
-	    // explore the region around home base
-	    if(debug) System.out.println("Eploring region.");
-	    for(int y = goalY; y>obstacleMap.length/4; y--){
-		if(obstacleMap[goalX][y]==UNEXPLORED &&
-		   !(currentPos.x == goalX && currentPos.y == goalY )){
-		    return restrictedMoveTowards(new Pos(goalX, y), false);
-		}
-	    }
-	    doneExploring = true;
-	    return defenseModeMove();
-	}	
+    public int defenseModeMove(boolean enemyHasFlag){
+	Pos target = enemyHasFlag ? enemyBase : homeBase;
+	predictPaths(target);
+	// find a chokepoint to guard
+	Pos bestChoke = bestChoke();	    
+	// move towards that chokepoint
+	return moveTowards(bestChoke, false, false, true);// if we're in defense mode then we don't have the flag
     }
 
     public int getMove( AgentEnvironment env ) {
@@ -1166,7 +924,7 @@ public class TestAgent extends Agent {
 		if(!env.isBaseSouth(env.OUR_TEAM, true)){
 		    northTravelDist++;
 		    //return recordMove(AgentAction.MOVE_SOUTH);
-		    return AgentAction.MOVE_SOUTH;
+		    return recordMove(AgentAction.MOVE_SOUTH);
 		}else{
 		    northInitComplete= true;
 		}
@@ -1179,7 +937,7 @@ public class TestAgent extends Agent {
 		if(!env.isBaseNorth(env.OUR_TEAM, true)){
 		    southTravelDist++;
 		    //return recordMove(AgentAction.MOVE_NORTH);
-		    return AgentAction.MOVE_NORTH;
+		    return recordMove(AgentAction.MOVE_NORTH);
 		}else{
 		    southInitComplete= true;
 		}
@@ -1206,7 +964,7 @@ public class TestAgent extends Agent {
 		
 	    }else{
 		//return recordMove(AgentAction.DO_NOTHING);
-		return AgentAction.DO_NOTHING;
+		return recordMove(AgentAction.DO_NOTHING);
 	    }
 	
 	}
@@ -1240,8 +998,7 @@ public class TestAgent extends Agent {
 	
 	/** Separate responsibilities*/
 	int finalMove = 0;
-	//setMode(env);
-	mode = ATTACK;
+	setMode(env);
 	switch(mode){
 	case ATTACK:
 	    if(debug) System.out.println("ATTACK MODE");
@@ -1249,7 +1006,7 @@ public class TestAgent extends Agent {
 	    break;
 	case DEFEND:
 	    if(debug) System.out.println("DEFEND MODE");
-	    finalMove = defenseModeMove();
+	    finalMove = defenseModeMove(env.hasFlag(env.ENEMY_TEAM));
 	    break;
 	case HUNT:
 	    break;
@@ -1260,8 +1017,8 @@ public class TestAgent extends Agent {
 
 	if(debug) {
 	    printObstacleMap();
-	    //printChokeMap();
-	    //printAgentMap();
+	    printAgentMap();
+	    //printPathMap();
 	}
 
 	
