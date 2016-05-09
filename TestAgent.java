@@ -82,6 +82,7 @@ public class TestAgent extends Agent {
      * -0.5 indicates the possibility that an enemy is there
      */
     private static double[][] agentMap;
+    private static double[][] pathMap;
     private Pos currentPos = null;
     private Pos prevPos = null;
 
@@ -163,10 +164,14 @@ public class TestAgent extends Agent {
 	private int move;
 	private int pathCost;
 	private int manhattan;
+	private double enemyProb;
+	private boolean avoidEnemies;
 	private Pos pos; // The position that results from making the move
 	private PathSearchNode parentNode;
 	
-	public PathSearchNode(int move, int pathCost,int manhattan, Pos pos, PathSearchNode parent){
+	
+	public PathSearchNode(int move, int pathCost,int manhattan,
+			      Pos pos, PathSearchNode parent, double enemyProb, boolean avoidEnemies){
 	    this.move = move;
 	    this.pathCost = pathCost;
 	    this.manhattan = manhattan;
@@ -257,7 +262,7 @@ public class TestAgent extends Agent {
      */
     private boolean isW1Chokepoint(Pos testPos){
 	// check if the test position is a wall	
-	if(testObstacle(testPos)){
+	if(isBlocked(testPos)){
 	    return false;
 	}
 	int testX = testPos.x;
@@ -272,19 +277,19 @@ public class TestAgent extends Agent {
 	 * but not directly north or directly south
 	 */
 	// no obstacles directly north or directly south
-	if( !(testObstacle(new Pos(testX, testY+1)) || testObstacle(new Pos(testX, testY+1)) ) ){
+	if( !(isBlocked(new Pos(testX, testY+1)) || isBlocked(new Pos(testX, testY+1)) ) ){
 	    // test if the west cell is blocked
-	    if(testObstacle(new Pos(testX-1, testY)) && 
+	    if(isBlocked(new Pos(testX-1, testY)) && 
 	       // test if the northEast, east, or southeast cells are blocked
-	       (testObstacle(new Pos(testX+1, testY+1))  || 
-		testObstacle(new Pos(testX+1, testY)) ||
-		testObstacle(new Pos(testX+1, testY-1)))){
+	       (isBlocked(new Pos(testX+1, testY+1))  || 
+		isBlocked(new Pos(testX+1, testY)) ||
+		isBlocked(new Pos(testX+1, testY-1)))){
 		verticalChoke = true;
-	    }else if(testObstacle(new Pos(testX+1, testY)) && // test if the east cell is blocked
+	    }else if(isBlocked(new Pos(testX+1, testY)) && // test if the east cell is blocked
 		     // test if the northWest, west, or southWest cells are blocked
-		     (testObstacle(new Pos(testX-1, testY+1))|| 
-		      testObstacle(new Pos(testX-1, testY)) ||
-		      testObstacle(new Pos(testX-1, testY-1)))){
+		     (isBlocked(new Pos(testX-1, testY+1))|| 
+		      isBlocked(new Pos(testX-1, testY)) ||
+		      isBlocked(new Pos(testX-1, testY-1)))){
 		verticalChoke = true;
 	    }
 	}
@@ -292,19 +297,19 @@ public class TestAgent extends Agent {
 	 * Check for horizontal corridor, i.e. walls on the north and south 
 	 * but not directly east or directly west
 	 */
-	if( !(testObstacle(new Pos(testX-1, testY)) || testObstacle(new Pos(testX+1, testY)) ) ){
+	if( !(isBlocked(new Pos(testX-1, testY)) || isBlocked(new Pos(testX+1, testY)) ) ){
 	    // test if the north cell is blocked
-	    if(testObstacle(new Pos(testX, testY+1)) && 
+	    if(isBlocked(new Pos(testX, testY+1)) && 
 	       // test if the southEast, south, or southWest cells are blocked
-	       (testObstacle(new Pos(testX-1, testY-11)) || 
-		testObstacle(new Pos(testX,   testY-1)) ||
-		testObstacle(new Pos(testX+1, testY-1)))){
+	       (isBlocked(new Pos(testX-1, testY-11)) || 
+		isBlocked(new Pos(testX,   testY-1)) ||
+		isBlocked(new Pos(testX+1, testY-1)))){
 		horizontalChoke = true;
-	    }else if(testObstacle(new Pos(testX, testY-1)) && // test if the south cell is blocked
+	    }else if(isBlocked(new Pos(testX, testY-1)) && // test if the south cell is blocked
 		     // test if the northEast, north, or northWest cells are blocked
-		     (testObstacle(new Pos(testX-1, testY+1)) || 
-		      testObstacle(new Pos(testX,   testY+1)) ||
-		      testObstacle(new Pos(testX+1, testY+1)))){
+		     (isBlocked(new Pos(testX-1, testY+1)) || 
+		      isBlocked(new Pos(testX,   testY+1)) ||
+		      isBlocked(new Pos(testX+1, testY+1)))){
 		horizontalChoke = true;
 	    }
 	}
@@ -312,14 +317,14 @@ public class TestAgent extends Agent {
 	 * Check for topRightChoke
 	 * topLeft cell blocked and bottomRight cell blocked
 	 */
-	if( testObstacle(new Pos(testX-1,testY+1)) && testObstacle(new Pos(testX+1,testY-1))  ){
+	if( isBlocked(new Pos(testX-1,testY+1)) && isBlocked(new Pos(testX+1,testY-1))  ){
 	    topRightChoke = true;
 	}
 	/*
 	 * Check for topLeftChoke
 	 * topRight cell blocked and bottomRight cell blocked
 	 */
-	if( testObstacle(new Pos(testX+1,testY+1)) && testObstacle(new Pos(testX-1,testY-1))  ){
+	if( isBlocked(new Pos(testX+1,testY+1)) && isBlocked(new Pos(testX-1,testY-1))  ){
 	    topLeftChoke = true;
 	}
 
@@ -378,7 +383,7 @@ public class TestAgent extends Agent {
 	default:
 	    break;
 	}
-	if(initComplete) agentMap[currentPos.x][currentPos.y] = 1;
+	if(initComplete) agentMap[currentPos.x][currentPos.y] = -1.0;
 	return m;
     }
 
@@ -395,7 +400,8 @@ public class TestAgent extends Agent {
      */
     // TODO: fix pathfinding with possession of flag
     // TODO: Incorporate probability matrices
-    private PathSearchNode getPath(Pos start, Pos goal, boolean hasFlag){
+    private PathSearchNode getPath(Pos start, Pos goal, boolean hasFlag,
+				   boolean avoidEnemies, boolean seekEnemies, boolean){
 	// clear the debugging grid
 	if(debug) debugPathGrid = new boolean[obstacleMap.length][obstacleMap.length];
 	if(goal==null || goal.equals(start))
@@ -447,7 +453,7 @@ public class TestAgent extends Agent {
 		    // Don't add to heap if temp is homeBase unless the goal is homeBase.
 		    if( ( hasFlag || !temp.equals(homeBase) ) &&
 			// Don't add to heap if there's a wall or agent in the way
-			!testTeammate(temp) /*&& testEnemy(temp)!=-1.0 */ && !testObstacle(temp)) {
+			!testTeammate(temp) /*&& testEnemy(temp)!=-1.0 */ && !isBlocked(temp)) {
 			PathSearchNode newNode = new PathSearchNode(directions[i], currentNode.pathCost+1,
 								    manhattanDist(temp,goal), temp, currentNode);
 			heap.add(newNode);
@@ -510,7 +516,7 @@ public class TestAgent extends Agent {
 		    // Don't add to heap if temp is homeBase unless the goal is homeBase.
 		    if( ( hasFlag || !temp.equals(homeBase) ) &&
 			// Don't add to heap if there's a wall or agent in the way
-			!testTeammate(temp) /*&& testEnemy(temp)!=-1.0 */ && !testObstacle(temp)) {
+			!testTeammate(temp) /*&& testEnemy(temp)!=-1.0 */ && !isBlocked(temp)) {
 			PathSearchNode newNode = new PathSearchNode(directions[i], currentNode.pathCost+1,
 								    manhattanDist(temp,goal), temp, currentNode);
 			heap.add(newNode);
@@ -588,9 +594,9 @@ public class TestAgent extends Agent {
     
     private boolean testTeammate(Pos p){
 	try{
-	    return 1.0==agentMap[p.x][p.y];
+	    return -1.0==agentMap[p.x][p.y];
 	}catch(IndexOutOfBoundsException e){
-	    return true;
+	    return false;
 	}
     }
 
@@ -601,8 +607,16 @@ public class TestAgent extends Agent {
 	    return 0.0;
 	}
     }
+
+    private double testPath(Pos p){
+	try{
+	    return pathMap[p.x][p.y];
+	}catch(IndexOutOfBoundsException e){
+	    return 0.0;
+	}
+    }
     
-    private boolean testObstacle(Pos p){
+    private boolean isBlocked(Pos p){
 	try{
 	    return obstacleMap[p.x][p.y]==BLOCKED;
 	}catch(IndexOutOfBoundsException e){
@@ -610,6 +624,23 @@ public class TestAgent extends Agent {
 	}
     }
 
+    private void moveEnemies(){
+	for(int x = 0; x < agentMap.length; x++){
+	    for(int y = 0; y < agentMap[x].length; y++){
+		if(agentMap[x][y]!=0){
+		    Pos p1 = new Pos(x+1, y);
+		    Pos p2 =new Pos(x-1, y);
+		    Pos p3 = new Pos(x, y+1);
+		    Pos p4 = new Pos(x, y-1);
+		    insertAgent(p1, isBlocked(p1) ? 0.0 : 0.5);
+		    insertAgent(p2, isBlocked(p2) ? 0.0 : 0.5);
+		    insertAgent(p3, isBlocked(p3) ? 0.0 : 0.5);
+		    insertAgent(p4, isBlocked(p4) ? 0.0 : 0.5);
+		}
+	    }
+	}
+    }
+    
     private void updateMaps(AgentEnvironment e){
 	boolean right = e.isObstacleEastImmediate();
 	boolean up = e.isObstacleNorthImmediate();
@@ -648,38 +679,96 @@ public class TestAgent extends Agent {
 		}
 	    }
 	    if(agentRight)
-		insertAgent(new Pos(x+1,y), -1);
+		insertAgent(new Pos(x+1,y), 1);
 	    if(agentLeft)
-		insertAgent(new Pos(x-1,y), -1);
+		insertAgent(new Pos(x-1,y), 1);
 	    if(agentUp)
-		insertAgent(new Pos(x,y+1), -1);
+		insertAgent(new Pos(x,y+1), 1);
 	    if(agentDown)
-		insertAgent(new Pos(x,y-1), -1);
+		insertAgent(new Pos(x,y-1), 1);
+	}else{
+	    moveEnemies();
 	}
 	
-	if(agentRight){
-	    
-	}else{
-	    
+	boolean rightFar = e.isAgentEast(e.ENEMY_TEAM, true);
+	boolean upFar= e.isAgentNorth(e.ENEMY_TEAM, true);
+	boolean leftFar = e.isAgentWest(e.ENEMY_TEAM, true);
+	boolean downFar = e.isAgentSouth(e.ENEMY_TEAM, true);	    
+	if(sum==1){
+	    if(agentRight){
+		insertAgent(new Pos(x+1,y), 1);
+	    }else if(agentLeft){
+		insertAgent(new Pos(x-1,y), 1);
+	    }else if(agentUp){
+		insertAgent(new Pos(x,y+1), 1);
+	    }else if(agentDown){
+		insertAgent(new Pos(x,y-1), 1);
+	    }
+	    if(!rightFar){
+		removeEastAgents();
+	    }
+	    if(!upFar){
+		removeNorthAgents();
+	    }
+	    if(!leftFar){
+		removeWestAgents();
+	    }
+	    if(!downFar){
+		removeSouthAgents();
+	    }
 	}
-	if(agentUp){
-	    
-	}else{
-	    
+	if(sum==0){
+	    if(!rightFar){
+		// mark all right positions with a 0
+		removeEastAgents();
+	    }
+	    if(!upFar){
+		removeNorthAgents();
+	    }
+	    if(!leftFar){
+		removeWestAgents();
+	    }
+	    if(!downFar){
+		removeSouthAgents();
+	    }
 	}
-	if(agentLeft){
-	    
-	}else{
-	    
-	}
-	if(agentDown){
-	    
-	}else{
-	    
-	}
+	
+	
 	
     }
 
+    private void removeSouthAgents(){
+	for(int col = 0; col<agentMap.length; col++){
+		for(int row = currentPos.y-1; row>0; row--){
+		    insertAgent(new Pos(col,row), 0.0);
+		}
+	    }
+    }
+
+    private void removeNorthAgents(){
+	for(int col = 0; col<agentMap.length; col++){
+		for(int row = currentPos.y+1; row<agentMap[col].length; row++){
+		    insertAgent(new Pos(col,row), 0.0);
+		}
+	    }
+    }
+
+    private void removeEastAgents(){
+	for(int col = currentPos.x+1; col<agentMap.length; col++){
+	    for(int row = 0; row<agentMap[col].length; row++){
+		insertAgent(new Pos(col,row), 0.0);
+	    }
+	}	
+    }
+
+    private void removeWestAgents(){
+	for(int col = currentPos.x-1; col>0; col--){
+		for(int row = 0; row<agentMap[col].length; row++){
+		    agentMap[col][row]= 0.0;
+		}
+	    }
+    }
+    
     private String moveToString(int m){
 	switch(m){
 	case AgentAction.MOVE_EAST:
@@ -876,15 +965,53 @@ public class TestAgent extends Agent {
 	    obstacleMap[mapWidth-1][i] = EMPTY;
 	}
 	agentMap = new double[mapWidth][mapWidth];
-	chokepointMap = new int[mapWidth][mapWidth];
-	chokeWeightMap = new int[mapWidth][mapWidth];
-	for(int x = 0; x<mapWidth; x++){
-	    for(int y = 0; y<mapWidth; y++){
-		chokepointMap[x][y] = NOT_CHOKEPOINT;
-	    }		
+	pathMap = new double[mapWidth][mapWidth];
+	int enemyX = startSide==LEFT_START ? mapWidth-1 : 0;
+	insertAgent(new Pos(enemyX, 0), 0.5);
+	insertAgent(new Pos(enemyX, mapWidth-1), 0.5);
+	for(int i = 0; i<=moveHistory.size(); i++){
+	    moveEnemies();
+	}
+	
+    }
+
+    private void predictPaths(Pos destination){
+	for(int x = 0; x<agentMap.length; x++){
+	    for(int y = 0; y<agentMap[x].length; y++){
+		Pos start = new Pos(x,y);
+		if(testEnemy(start) != 0){
+		    PathSearchNode path = getPath(start, destination, true );
+		    for(PathSearchNode node : path){
+			Pos p = node.getPos();
+			pathMap[p.x][p.y] += testEnemy(start)/node.getPathCost();
+		    }
+		}			   
+	    }
 	}
     }
 
+    private Pos bestChoke(){
+	Pos bestPos = currentPos;
+	double max = 0;
+	for(int x = 0; x<pathMap.length; x++){
+	    for(int y = 0; x<pathMap.length; y++){
+		Pos temp = new Pos(x,y);
+		if(temp.equals(homeBase)){
+		    continue;
+		}
+		double sum = testPath(p) +
+		    testPath(new Pos(p.x+1, p.y))
+		    testPath(new Pos(p.x-1, p.y))
+		    testPath(new Pos(p.x, p.y+1))
+		    testPath(new Pos(p.x, p.y-1));
+		if(max < sum){
+		    max = sum;
+		    bestPos = temp;
+		}
+	    }
+	}
+    }
+    
     /** 
      * Calculates 6 paths between points of interest in the map and weights
      * each chokepoint based on the number of optimal paths that use it

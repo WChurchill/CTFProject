@@ -569,9 +569,9 @@ public class wjc140030Agent extends Agent {
 	    int w = completeMap!=null ? completeMap.width()-1 : width-1;
 	    switch(startCorner){
 	    case NORTH_WEST_START:
-		return new Pos(w-p.x,w-p.y);
+		return new Pos(p.x,w-p.y);
 	    case NORTH_EAST_START:
-		return new Pos(w+p.x,w-p.y);
+		return new Pos(w-p.x,w-p.y);
 	    case SOUTH_WEST_START:
 		return new Pos(p.x, p.y);
 	    case SOUTH_EAST_START:
@@ -607,12 +607,9 @@ public class wjc140030Agent extends Agent {
 	}
 	
 	public boolean testTeammate(Pos p, boolean relative){
-	    Pos absPos = relative ? toAbsPos(p) : p;
-	    try{
-		return -1.0==agentMap.get(absPos.x).get(absPos.y);
-	    }catch(IndexOutOfBoundsException e){
-		return false;
-	    }
+	    // if we knew where our teammate was, we wouldn't be using
+	    // the damn dynamicmap in the first place
+	    return false;
 	}
 
 	public double testEnemy(Pos p, boolean relative){
@@ -921,19 +918,26 @@ public class wjc140030Agent extends Agent {
 	}
 	
 	public void printObstacleMap(){
+	    
 	    System.out.print("[]");
 	    for (int col = 0; col<=width; col++) {
 		System.out.print("[]");
 	    }
 	    System.out.println();
+	    Pos myPos = absToGlobal(toAbsPos(currentPos));
+	    // System.out.println("currentPos->"+myPos);
+	    
 	    // print each row of the map
 	    for (int row = width-1; row>=0; row--){
 		System.out.print("[]");
 		
 		for(int column = 0; column<width; column++){
 		    int status = testObstacle(globalToAbs(new Pos(column, row)), false);
-		    if(debugPathGrid!=null && debugPathGrid[column][row]){
-			System.out.println("--");
+		    
+		    if(column==myPos.x && row==myPos.y){
+			System.out.print("AA");
+		    }else if(debugPathGrid!=null && debugPathGrid[column][row]){
+			System.out.print("--");
 		    }else if(status==BLOCKED){
 			System.out.print("[]");
 		    }else if(status==UNEXPLORED){
@@ -1134,7 +1138,7 @@ public class wjc140030Agent extends Agent {
      */
     // TODO: fix pathfinding with possession of flag
     // TODO: Incorporate probability matrices
-    private PathSearchNode getPath(Pos start, Pos goal, boolean hasFlag, boolean random){
+    private PathSearchNode getPath(Pos start, Pos goal, boolean hasFlag, boolean random, boolean avoidEnemies){
 	// clear the debugging grid
 	if(debug) debugPathGrid = new boolean[currentMap.width()][currentMap.width()];
 	if(goal==null || goal.equals(start))
@@ -1153,15 +1157,16 @@ public class wjc140030Agent extends Agent {
 		continue;
 	    }
 	    searchHistory.put(currentNode.getPos(), currentNode); // add it to the search history
-		
+
 	    if(debug){
+		// System.out.println("Expanding "+currentNode.getPos()+"...");
 		Pos p = currentNode.getPos();
-		System.out.println("node: "+p);
+		//System.out.println("node: "+p);
 		Pos absPos = currentMap.toAbsPos(new Pos(currentPos.x+p.x, currentPos.y+p.y));
-		System.out.println("abs: "+p);
+		//System.out.println("abs: "+p);
 		Pos globalPos = currentMap.absToGlobal(absPos);
-		System.out.println("global: "+globalPos);
-		debugPathGrid[globalPos.x][globalPos.y]=true;
+		//System.out.println("global: "+globalPos);
+		// debugPathGrid[globalPos.x][globalPos.y]=true;
 	    }
 	    // goal test 
 	    if(currentNode.getPos().equals(goal)){
@@ -1170,11 +1175,14 @@ public class wjc140030Agent extends Agent {
 		
 	    }else{
 		// expand successors
+		Pos nodePos = currentNode.getPos();
+		int x = nodePos.x;
+		int y = nodePos.y;
 		Pos[] adjacentCells = {
-		    new Pos(1,0 ), // east
-		    new Pos(-1,0 ), // west
-		    new Pos(0,1 ), // north
-		    new Pos(0,-1 ) // south
+		    new Pos(x+1, y ), // east
+		    new Pos(x-1, y ), // west
+		    new Pos(x,   y+1 ), // north
+		    new Pos(x,   y-1 ) // south
 		};
 		PathSearchNode[] newNodes = {
 		     new PathSearchNode(AgentAction.MOVE_EAST, currentNode.pathCost+1,
@@ -1192,13 +1200,19 @@ public class wjc140030Agent extends Agent {
 		}
 		for(int i = 0; i<newNodes.length; i++){
 		    Pos temp = newNodes[i].getPos();
+		    // System.out.println(temp);
+		    
+		    // System.out.println("hasFlag || !equals(homeBase) "+(hasFlag || !temp.equals(homeBase)));
+		    // System.out.println("testTeammate "+(currentMap.testTeammate(temp, true)));
+		    // System.out.println("isBlocked "+(currentMap.isBlocked(temp, true)));
+					    
 		    // HomeBase is an obstacle unless the agent has the enemy flag.
 		    // Don't add to heap if temp is homeBase unless the goal is homeBase.
 		    if( ( hasFlag || !temp.equals(homeBase) ) &&
 			// Don't add to heap if there's a wall or agent in the way
 			!currentMap.testTeammate(temp, true) /*&& testEnemy(temp)!=-1.0 */ &&
 			!currentMap.isBlocked(temp, true)) {
-			System.out.println(temp);
+			// System.out.println(temp);
 			
 			heap.add(newNodes[i]);
 		    }
@@ -1210,10 +1224,10 @@ public class wjc140030Agent extends Agent {
 
     }
     
-    private int moveTowards(Pos goal, boolean hasFlag){
-	System.out.println("moving towards: "+goal);
+    private int moveTowards(Pos goal, boolean hasFlag, boolean avoidEnemies){
+	// System.out.println("moving towards: "+goal);
 	
-	PathSearchNode currentNode = getPath(currentPos, goal, hasFlag, false);
+	PathSearchNode currentNode = getPath(currentPos, goal, hasFlag, false, avoidEnemies);
 	intention = currentNode;
 	while(currentNode.getParent()!=null &&
 	      currentNode.getParent().getParent()!=null){
@@ -1333,8 +1347,8 @@ public class wjc140030Agent extends Agent {
 		agent2.mode = DEFEND;
 		return;
 	    }
-	    int myDist = this.pathLength(this.getPath(currentPos, enemyBase, false, false));
-	    int otherDist = teammate.pathLength( teammate.getPath(teammate.currentPos,enemyBase, false, false));
+	    int myDist = this.pathLength(this.getPath(currentPos, enemyBase, false, false, false));
+	    int otherDist = teammate.pathLength( teammate.getPath(teammate.currentPos,enemyBase, false, false, false));
 	    if(myDist==otherDist){
 		if(debug) System.out.println(myDist+"=="+otherDist);
 		agent1.mode = ATTACK;
@@ -1349,9 +1363,9 @@ public class wjc140030Agent extends Agent {
 	
     public int attackModeMove(boolean hasFlag){
 	if(hasFlag){
-	    return moveTowards(homeBase,true);	
+	    return moveTowards(homeBase,true, true);	
 	}else{
-	    return moveTowards(enemyBase,false);			
+	    return moveTowards(enemyBase,false, true);			
 	    // if(isChoke(currentPos) && (Math.random() > 0.925)){
 	    // 	return PLANT_MINE;
 	    // }else{
@@ -1366,7 +1380,7 @@ public class wjc140030Agent extends Agent {
 	// find a chokepoint to guard
 	Pos goal = currentMap.getDestination();	    
 	// move towards that chokepoint
-	return moveTowards(goal, false);// if we're in defense mode then we don't have the flag
+	return moveTowards(goal, false, false);// if we're in defense mode then we don't have the flag
     }
 
     public int getMove( AgentEnvironment env ) {
@@ -1401,6 +1415,7 @@ public class wjc140030Agent extends Agent {
 		}
 	    }
 	}
+	if(debug) System.out.println("currentPos: "+currentPos);
 	
 	/** Separate responsibilities*/
 	int finalMove = 0;
