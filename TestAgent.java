@@ -590,22 +590,12 @@ public class TestAgent extends Agent {
 	if(sum==0){
 	    if(!rightFar){
 		// mark all right positions with a 0
-		if(!leftFar){
-		    for(int row = 0; row<agentMap.length; row++){
-			agentMap[currentPos.x][row] = 0;
-		    }
-		}else{
-		    removeEastAgents();    
-		}
+		removeEastAgents();    
 	    }
 	    if(!upFar){
-		if(!leftFar){
-		    for(int col = 0; col<agentMap.length; col++){
-			agentMap[col][currentPos.y] = 0;
-		    }
-		}else{
-		    removeNorthAgents();    
-		}
+		
+		removeNorthAgents();    
+	
 	    }
 	    if(!leftFar){
 		removeWestAgents();
@@ -613,10 +603,20 @@ public class TestAgent extends Agent {
 	    if(!downFar){
 		removeSouthAgents();
 	    }
+	    if(rightFar && leftFar){
+		// mark the current column with all zeros
+		for(int row = 0; row<agentMap.length; row++){
+		    agentMap[currentPos.x][row] = 0;
+		}
+	    }
+	    if(upFar && downFar){
+		// mark the current row with all zeros
+		for(int col = 0; col<agentMap.length; col++){
+		    agentMap[col][currentPos.y] = 0;
+		}
+	    }
 	}
 	normalizeProbs();
-	
-	
     }
 
     private void removeSouthAgents(){
@@ -735,7 +735,7 @@ public class TestAgent extends Agent {
 		}		    
 		
 	    }
-	    System.out.println("[]");
+	    System.out.println(" []");
 	}
 	//print the bottom edge of the map
 	System.out.print("[] ");
