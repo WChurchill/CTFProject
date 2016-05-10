@@ -277,34 +277,20 @@ public class TestAgent extends Agent {
 	
 	switch(m){
 	case AgentAction.MOVE_EAST:
-<<<<<<< HEAD
-	    currentPos.x++;
+	    if(!environment.isAgentEast(environment.OUR_TEAM,true))
+		currentPos.x++;
 	    break;
 	case AgentAction.MOVE_NORTH:
-	
-	    currentPos.y++;
+	    if(!environment.isAgentNorth(environment.OUR_TEAM,true))
+		currentPos.y++;
 	    break;
 	case AgentAction.MOVE_WEST:
-	
-	    currentPos.x--;
+	    if(!environment.isAgentWest(environment.OUR_TEAM,true))
+		currentPos.x--;
 	    break;
 	case AgentAction.MOVE_SOUTH:
-=======
-		if(!environment.isAgentEast(environment.OUR_TEAM,true))
-	    currentPos.x++;
-	    break;
-	case AgentAction.MOVE_NORTH:
-		if(!environment.isAgentNorth(environment.OUR_TEAM,true))
-	    currentPos.y++;
-	    break;
-	case AgentAction.MOVE_WEST:
-		if(!environment.isAgentWest(environment.OUR_TEAM,true))
-	    currentPos.x--;
-	    break;
-	case AgentAction.MOVE_SOUTH:
-		if(!environment.isAgentSouth(environment.OUR_TEAM,true))
->>>>>>> 55716508a51a4b309db478b6fc7e3cef45d5c8bc
-	    currentPos.y--;
+	    if(!environment.isAgentSouth(environment.OUR_TEAM,true))
+		currentPos.y--;
 	    break;
 	case AgentAction.DO_NOTHING:
 	    break;
@@ -501,11 +487,7 @@ public class TestAgent extends Agent {
 		    insertAgent(p3, isBlocked(p3) ? 0.0 : 0.5);
 		    insertAgent(p4, isBlocked(p4) ? 0.0 : 0.5);
 		}else if(oldAgentMap[x][y]==-1.0){
-<<<<<<< HEAD
 		    agentMap[x][y] = -1.0;
-=======
-		    agentMap[x][y] = -1;
->>>>>>> 55716508a51a4b309db478b6fc7e3cef45d5c8bc
 		}
 		
 	    }
