@@ -113,7 +113,8 @@ public class TestAgent extends Agent {
      * determine the width of the map. Once the map width is known, 
      * the matrices are instantiated.
      */
-    
+ 	public AgentEnvironment environment;
+
     public TestAgent(){
 	ID = nextID++;
 	initComplete = false;
@@ -276,19 +277,19 @@ public class TestAgent extends Agent {
 	
 	switch(m){
 	case AgentAction.MOVE_EAST:
-		if(!e.isAgentEast(e.OUR_TEAM,true))
+		if(!environment.isAgentEast(environment.OUR_TEAM,true))
 	    currentPos.x++;
 	    break;
 	case AgentAction.MOVE_NORTH:
-		if(!e.isAgentNorth(e.OUR_TEAM,true))
+		if(!environment.isAgentNorth(environment.OUR_TEAM,true))
 	    currentPos.y++;
 	    break;
 	case AgentAction.MOVE_WEST:
-		if(!e.isAgentWest(e.OUR_TEAM,true))
+		if(!environment.isAgentWest(environment.OUR_TEAM,true))
 	    currentPos.x--;
 	    break;
 	case AgentAction.MOVE_SOUTH:
-		if(!e.isAgentSouth(e.OUR_TEAM,true))
+		if(!environment.isAgentSouth(environment.OUR_TEAM,true))
 	    currentPos.y--;
 	    break;
 	case AgentAction.DO_NOTHING:
@@ -485,7 +486,7 @@ public class TestAgent extends Agent {
 		    insertAgent(p2, isBlocked(p2) ? 0.0 : 0.5);
 		    insertAgent(p3, isBlocked(p3) ? 0.0 : 0.5);
 		    insertAgent(p4, isBlocked(p4) ? 0.0 : 0.5);
-		}else if(oldAgentMap==-1){
+		}else if(oldAgentMap[x][y]==-1.0){
 		    agentMap[x][y] = -1;
 		}
 		
@@ -860,10 +861,13 @@ public class TestAgent extends Agent {
         
     public void setMode(AgentEnvironment e){
 	if(e.hasFlag()){
+		System.out.println("I have flag");
 	    mode = ATTACK;
 	}else if(e.hasFlag(e.OUR_TEAM)){
+		System.out.println("We have flag");
 	    mode = DEFEND;
 	}else if(e.hasFlag(e.ENEMY_TEAM)){
+		System.out.println("They have flag");
 	    mode = DEFEND;
 	} else{
 	    TestAgent teammate = (this.equals(agent1)) ? agent2 : agent1;
@@ -880,12 +884,15 @@ public class TestAgent extends Agent {
 		agent1.mode = ATTACK;
 		agent2.mode = DEFEND;
 	    }else{
-		if(debug) System.out.println(myDist+"<"+otherDist);
+		if(debug && myDist<otherDist) System.out.println(myDist+"<"+otherDist);
+		if(debug && myDist > otherDist) System.out.println(myDist+">"+otherDist);
+
 		mode = (myDist<otherDist) ? ATTACK : DEFEND;
+		System.out.println("mydist: "+myDist+"\t otherDist: "+otherDist);
 	    }
 	}
-	
-    }
+	}
+   
     
     public int attackModeMove(boolean hasFlag){
 	predictPaths(currentPos);
@@ -921,7 +928,7 @@ public class TestAgent extends Agent {
 
     public int getMove( AgentEnvironment env ) {
 	if (debug) System.out.println("***** Processing Agent "+ID+" *****");
-
+	environment = env;
 
 	/** check whether the teammates have met in the middle */
 	if(!initComplete){
