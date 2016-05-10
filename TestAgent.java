@@ -276,15 +276,19 @@ public class TestAgent extends Agent {
 	
 	switch(m){
 	case AgentAction.MOVE_EAST:
+		if(!e.isAgentEast(e.OUR_TEAM,true))
 	    currentPos.x++;
 	    break;
 	case AgentAction.MOVE_NORTH:
+		if(!e.isAgentNorth(e.OUR_TEAM,true))
 	    currentPos.y++;
 	    break;
 	case AgentAction.MOVE_WEST:
+		if(!e.isAgentWest(e.OUR_TEAM,true))
 	    currentPos.x--;
 	    break;
 	case AgentAction.MOVE_SOUTH:
+		if(!e.isAgentSouth(e.OUR_TEAM,true))
 	    currentPos.y--;
 	    break;
 	case AgentAction.DO_NOTHING:
@@ -885,9 +889,13 @@ public class TestAgent extends Agent {
     
     public int attackModeMove(boolean hasFlag){
 	predictPaths(currentPos);
+	System.out.println("Current Position: "+ currentPos.x+", "+currentPos.y);
 	if(hasFlag){
+		System.out.println("GOAL: "+homeBase);
 	    return moveTowards(homeBase,true, true, false);    
+
 	}else{
+		System.out.println("GOAL: "+enemyBase);
 	    return moveTowards(enemyBase,false, true, false);			
 	    // if(isW1Chokepoint(currentPos) && (Math.random() > 0.925)){
 	    // 	return PLANT_MINE;
