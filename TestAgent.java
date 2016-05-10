@@ -272,6 +272,7 @@ public class TestAgent extends Agent {
 	}
 	prevPos = currentPos.clone();
 	agentMap[prevPos.x][prevPos.y] = 0;
+	agentMap[currentPos.x][currentPos.y] = -1.0;
 	
 	switch(m){
 	case AgentAction.MOVE_EAST:
@@ -293,7 +294,7 @@ public class TestAgent extends Agent {
 	default:
 	    break;
 	}
-	if(initComplete) agentMap[currentPos.x][currentPos.y] = -1.0;
+	
 	return m;
     }
 
@@ -480,7 +481,10 @@ public class TestAgent extends Agent {
 		    insertAgent(p2, isBlocked(p2) ? 0.0 : 0.5);
 		    insertAgent(p3, isBlocked(p3) ? 0.0 : 0.5);
 		    insertAgent(p4, isBlocked(p4) ? 0.0 : 0.5);
+		}else if(oldAgentMap==-1){
+		    agentMap[x][y] = -1;
 		}
+		
 	    }
 	}
     }
