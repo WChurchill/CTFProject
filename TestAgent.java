@@ -276,19 +276,17 @@ public class TestAgent extends Agent {
 	
 	switch(m){
 	case AgentAction.MOVE_EAST:
-		if(!e.isAgentEast(e.OUR_TEAM,true))
 	    currentPos.x++;
 	    break;
 	case AgentAction.MOVE_NORTH:
-		if(!e.isAgentNorth(e.OUR_TEAM,true))
+	
 	    currentPos.y++;
 	    break;
 	case AgentAction.MOVE_WEST:
-		if(!e.isAgentWest(e.OUR_TEAM,true))
+	
 	    currentPos.x--;
 	    break;
 	case AgentAction.MOVE_SOUTH:
-		if(!e.isAgentSouth(e.OUR_TEAM,true))
 	    currentPos.y--;
 	    break;
 	case AgentAction.DO_NOTHING:
@@ -485,8 +483,8 @@ public class TestAgent extends Agent {
 		    insertAgent(p2, isBlocked(p2) ? 0.0 : 0.5);
 		    insertAgent(p3, isBlocked(p3) ? 0.0 : 0.5);
 		    insertAgent(p4, isBlocked(p4) ? 0.0 : 0.5);
-		}else if(oldAgentMap==-1){
-		    agentMap[x][y] = -1;
+		}else if(oldAgentMap[x][y]==-1.0){
+		    agentMap[x][y] = -1.0;
 		}
 		
 	    }
@@ -716,7 +714,7 @@ public class TestAgent extends Agent {
 	}
 	System.out.println();
     }
-
+    
     private void printAgentMap() {
 	int width = obstacleMap.length;
 	// print the top of the map
